@@ -140,12 +140,12 @@ function PickStage({
       className="flex flex-col items-center justify-center min-h-screen px-6 py-10 relative overflow-hidden"
       style={{
         background:
-          // Two layered radial gradients: brand teal from top-center
-          // bleeding down, and a warmer amber glow from the bottom-right
-          // that picks up the second logo color. Gives the canvas
-          // atmosphere instead of flat gray.
-          "radial-gradient(ellipse 80% 55% at 50% 0%, rgba(45, 212, 191, 0.14) 0%, transparent 70%), " +
-          "radial-gradient(ellipse 50% 45% at 90% 100%, rgba(251, 191, 36, 0.06) 0%, transparent 65%), " +
+          // Aurora-tinted ambient wash: indigo from top-center bleeding
+          // down, faint violet glow from the bottom-right. Replaces the
+          // legacy teal/amber pair so the welcome surface lives inside
+          // the aurora launch identity.
+          "radial-gradient(ellipse 80% 55% at 50% 0%, rgba(99, 102, 241, 0.16) 0%, transparent 70%), " +
+          "radial-gradient(ellipse 50% 45% at 90% 100%, rgba(139, 92, 246, 0.08) 0%, transparent 65%), " +
           "var(--color-bg-primary)",
       }}
     >
@@ -167,45 +167,47 @@ function PickStage({
         }}
       />
 
-      <div className="relative w-full max-w-2xl">
+      <div className="relative w-full max-w-[660px]">
         <div className="flex flex-col items-center mb-10">
           <div className="relative mb-5">
-            {/* Soft brand glow behind the logo — same teal as the gradient,
-                keeps Noah's mark feeling anchored rather than floating. */}
+            {/* Aurora-tinted glow behind the logo — same indigo as the
+                page wash, keeps Noah's mark anchored to the launch
+                identity rather than floating in legacy teal. */}
             <div
               aria-hidden
               className="absolute inset-0 rounded-2xl blur-2xl opacity-70"
-              style={{ background: "rgba(45, 212, 191, 0.25)" }}
+              style={{ background: "rgba(99, 102, 241, 0.32)" }}
             />
             <NoahIcon
               className="relative w-20 h-20 rounded-2xl shadow-xl"
               alt="Noah"
             />
           </div>
+          <span className="eyebrow mb-3">{t("onboarding.eyebrow")}</span>
           <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
             {t("onboarding.greeting")}
           </h1>
-          <p className="text-sm text-text-secondary mt-2 text-center leading-relaxed max-w-md">
-            {tagline}
+          <p className="text-sm text-text-muted mt-2 text-center leading-relaxed max-w-md">
+            {t("onboarding.subgreeting")}
           </p>
           <p className="text-xs text-text-muted mt-3">
-            {t("onboarding.subgreeting")}
+            {tagline}
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           {TILES.map((tile) => (
             <button
               key={tile.id}
               onClick={() => onPick(tile)}
-              className="group relative flex items-start gap-3 text-left px-4 py-4 rounded-xl border border-white/[0.06] bg-bg-secondary/70 backdrop-blur-sm hover:border-accent-blue/40 hover:bg-bg-secondary transition-all duration-200 cursor-pointer hover:shadow-[0_8px_24px_-12px_rgba(45,212,191,0.25)]"
+              className="card-soft interactive aurora-focus group relative flex items-start gap-3 text-left px-4 py-4 cursor-pointer transition-all duration-200"
             >
               <span
                 className="flex items-center justify-center w-11 h-11 rounded-lg shrink-0 transition-colors"
                 style={{
-                  background: "rgba(45, 212, 191, 0.09)",
-                  color: "rgba(94, 234, 212, 0.9)",
-                  border: "1px solid rgba(45, 212, 191, 0.12)",
+                  background: "var(--color-accent-blue-soft)",
+                  color: "var(--color-accent-indigo)",
+                  border: "1px solid var(--color-accent-border)",
                 }}
                 aria-hidden
               >
@@ -267,7 +269,12 @@ function ClarifyStage({
 
         <div className="flex items-center gap-3 mb-6">
           <span
-            className="flex items-center justify-center w-11 h-11 rounded-xl bg-accent-green/10 text-accent-green"
+            className="flex items-center justify-center w-11 h-11 rounded-xl"
+            style={{
+              background: "var(--color-accent-blue-soft)",
+              color: "var(--color-accent-indigo)",
+              border: "1px solid var(--color-accent-border)",
+            }}
             aria-hidden
           >
             <Icon size={22} strokeWidth={1.75} />
@@ -302,7 +309,7 @@ function ClarifyStage({
           <button
             onClick={() => onContinue(value.trim())}
             disabled={!canContinue}
-            className="flex-1 py-2 rounded-xl bg-accent-green text-white text-sm font-medium hover:bg-accent-green/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-launch flex-1 py-2 rounded-xl text-sm font-medium cursor-pointer disabled:cursor-not-allowed"
           >
             {t("onboarding.continue")}
           </button>

@@ -146,6 +146,7 @@ function ContextMenu({
 function SessionItem({
   session,
   isActive,
+  isUnread,
   isRenaming,
   onSelect,
   onContextMenu,
@@ -156,6 +157,7 @@ function SessionItem({
 }: {
   session: SessionRecord;
   isActive: boolean;
+  isUnread: boolean;
   isRenaming: boolean;
   onSelect: (sessionId: string) => void;
   onContextMenu: (e: React.MouseEvent, session: SessionRecord) => void;
@@ -216,7 +218,7 @@ function SessionItem({
       }`}
     >
       <div className="flex-1 min-w-0">
-        <p className="text-sm leading-snug truncate">
+        <p className={`text-sm leading-snug truncate ${isUnread ? "font-semibold text-text-primary" : ""}`}>
           {session.title || t("sidebar.untitledSession")}
         </p>
         <p className="text-[10px] text-text-muted mt-0.5 flex items-center gap-1">
@@ -226,6 +228,16 @@ function SessionItem({
           )}
         </p>
       </div>
+      {isUnread && (
+        <span
+          aria-label="New activity"
+          className="w-2 h-2 rounded-full flex-shrink-0"
+          style={{
+            background: "var(--color-accent-indigo)",
+            boxShadow: "0 0 8px rgba(99, 102, 241, 0.6)",
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -242,6 +254,7 @@ export function Sidebar({ session }: SidebarProps) {
   const setActiveView = useSessionStore((s) => s.setActiveView);
   const currentSessionId = useSessionStore((s) => s.sessionId);
   const pastSessions = useSessionStore((s) => s.pastSessions);
+  const unreadSessionIds = useSessionStore((s) => s.unreadSessionIds);
   const setPastSessions = useSessionStore((s) => s.setPastSessions);
   const { switchToProblem } = useSession();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -475,6 +488,7 @@ export function Sidebar({ session }: SidebarProps) {
                 key={s.id}
                 session={s}
                 isActive={s.id === currentSessionId}
+                isUnread={unreadSessionIds.includes(s.id)}
                 isRenaming={renamingSessionId === s.id}
                 onSelect={handleSelectSession}
                 onContextMenu={handleContextMenu}

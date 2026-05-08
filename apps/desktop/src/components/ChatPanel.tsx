@@ -9,11 +9,15 @@ import { useAgent } from "../hooks/useAgent";
 import { parseResponse } from "../lib/parseResponse";
 import type {
   AssistantActionType,
+  AssistantFinding,
   AssistantQuestion,
+  AssistantStep,
   AssistantUiPayload,
 } from "../lib/tauri-commands";
 import * as commands from "../lib/tauri-commands";
 import { NoahIcon } from "./NoahIcon";
+import { FindingsGrid } from "./FindingsGrid";
+import { StepsList } from "./StepsList";
 import { useLocale } from "../i18n";
 import QRCode from "qrcode";
 
@@ -637,6 +641,8 @@ function ChangesBlock({ changeIds }: { changeIds: string[] }) {
 
 function ActionCard({
   situation,
+  findings,
+  steps,
   plan,
   actionLabel,
   actionType,
@@ -648,6 +654,8 @@ function ActionCard({
   onDoIt,
 }: {
   situation: string;
+  findings?: AssistantFinding[];
+  steps?: AssistantStep[];
   plan?: string;
   actionLabel: string;
   actionType?: string;
@@ -666,7 +674,17 @@ function ActionCard({
 
   return (
     <div className="group animate-fade-in">
-      <div className="rounded-[14px] border border-surface-card-border bg-surface-card surface-card overflow-hidden">
+      <div className="relative rounded-[14px] border border-surface-card-border bg-surface-card surface-card overflow-hidden">
+        {/* Aurora top hairline — see UserQuestionCard for rationale.
+            Suppressed once the action is taken; the commit "Sent" pill
+            then becomes the focal point. */}
+        {!actionTaken && (
+          <div
+            aria-hidden
+            className="absolute top-0 left-0 right-0 h-[2px]"
+            style={{ background: "var(--aurora)" }}
+          />
+        )}
         <div className="px-5 pt-4">
           {progress && (
             <StepIndicator
@@ -681,11 +699,17 @@ function ActionCard({
         </div>
 
         {/* Situation / Instructions */}
-        <div className={`px-5 ${prettyPlan ? "pb-2" : "pb-3"}`}>
+        <div
+          className={`px-5 ${
+            (findings && findings.length > 0) ||
+            (steps && steps.length > 0) ||
+            prettyPlan
+              ? "pb-2"
+              : "pb-3"
+          }`}
+        >
           {!isWaitForUser && (
-            <div className="text-sm font-semibold text-accent-blue mb-1.5 tracking-wide">
-              {t("chat.situation")}
-            </div>
+            <span className="eyebrow mb-2">{t("chat.situation")}</span>
           )}
           <div className="text-base leading-relaxed text-text-primary">
             <div className="whitespace-pre-wrap break-words">
@@ -695,19 +719,22 @@ function ActionCard({
           {qrData && <QrCodeImage data={qrData} />}
         </div>
 
-        {/* Plan (only when present) */}
-        {prettyPlan && (
+        {/* Findings — structured diagnostic facts, render before plan/steps. */}
+        {findings && findings.length > 0 && <FindingsGrid findings={findings} />}
+
+        {/* Steps (preferred) OR legacy markdown plan — never both. Steps wins. */}
+        {steps && steps.length > 0 ? (
+          <StepsList steps={steps} />
+        ) : prettyPlan ? (
           <div className="px-5 pb-3">
-            <div className="text-sm font-semibold text-accent-purple mb-1.5 tracking-wide">
-              {t("chat.plan")}
-            </div>
-            <div className="text-base text-text-secondary leading-relaxed">
+            <span className="eyebrow mb-2">{t("chat.plan")}</span>
+            <div className="text-base text-text-secondary leading-relaxed mt-1">
               <div className="whitespace-pre-wrap break-words">
                 <MarkdownSummary text={prettyPlan} />
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Action button.
             • RUN_STEP ("Please fix it") = LAUNCH register — same emotional
@@ -720,7 +747,7 @@ function ActionCard({
             onClick={onDoIt}
             disabled={actionTaken || isProcessing}
             className={`
-              w-full py-2.5 rounded-xl text-base font-semibold cursor-pointer
+              w-full text-[14px] font-semibold cursor-pointer
               flex items-center justify-center gap-2
               ${
                 actionTaken
@@ -732,13 +759,28 @@ function ActionCard({
                       : "btn-launch"
               }
             `}
+            style={{
+              height: "42px",
+              borderRadius: "11px",
+            }}
           >
-            {actionTaken && (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 13l4 4L19 7" />
-              </svg>
+            {actionTaken ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+                <span>{t("chat.sent")}</span>
+              </>
+            ) : (
+              <>
+                <span>{prettyActionLabel}</span>
+                {!isProcessing && (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M5 12h14M13 5l7 7-7 7" />
+                  </svg>
+                )}
+              </>
             )}
-            <span>{actionTaken ? t("chat.sent") : prettyActionLabel}</span>
           </button>
         </div>
       </div>
@@ -804,7 +846,17 @@ function UserQuestionCard({
 
   return (
     <div className="group animate-fade-in">
-      <div className="rounded-[14px] border border-surface-card-border bg-surface-card surface-card overflow-hidden">
+      <div className="relative rounded-[14px] border border-surface-card-border bg-surface-card surface-card overflow-hidden">
+        {/* Aurora top hairline — carries Noah identity on cards that are
+            asking the user to act. Suppressed once the question is
+            answered (the commit-pill below is then the focal point). */}
+        {!actionTaken && (
+          <div
+            aria-hidden
+            className="absolute top-0 left-0 right-0 h-[2px]"
+            style={{ background: "var(--aurora)" }}
+          />
+        )}
         <div className="px-5 pt-4 pb-3">
           {progress && (
             <StepIndicator
@@ -815,6 +867,9 @@ function UserQuestionCard({
               emoji={progress.emoji}
               playbookName={progress.playbook_name}
             />
+          )}
+          {!actionTaken && (
+            <span className="eyebrow mb-2">{t("chat.question")}</span>
           )}
           <div className="text-sm font-semibold text-text-primary mb-1.5 tracking-wide">
             <InlineMarkdown text={first.header} />
@@ -928,11 +983,13 @@ function UserQuestionCard({
 
 function DoneCard({
   summary,
+  findings,
   timestamp,
   isLatestDone,
   sessionId,
 }: {
   summary: string;
+  findings?: AssistantFinding[];
   timestamp: number;
   isLatestDone: boolean;
   sessionId: string | null;
@@ -983,14 +1040,15 @@ function DoneCard({
   return (
     <div className="group animate-fade-in">
       <div className="rounded-[14px] border border-surface-card-border bg-surface-card surface-card overflow-hidden">
-        <div className="px-5 pt-4 pb-3">
-          <div className="text-sm font-semibold text-accent-green mb-1.5 tracking-wide">
-            {t("chat.result")}
-          </div>
-          <div className="text-base text-text-primary leading-relaxed">
+        <div className={`px-5 pt-4 ${findings && findings.length > 0 ? "pb-2" : "pb-3"}`}>
+          <span className="eyebrow commit mb-2">{t("chat.result")}</span>
+          <div className="text-base text-text-primary leading-relaxed mt-1">
             <MarkdownSummary text={summary} />
           </div>
         </div>
+        {findings && findings.length > 0 && (
+          <FindingsGrid findings={findings} />
+        )}
       </div>
 
       <div className="flex items-center gap-3 mt-1.5 min-h-[24px]">
@@ -1126,6 +1184,8 @@ function renderFromUiPayload(
       return (
         <ActionCard
           situation={ui.situation}
+          findings={ui.findings}
+          steps={ui.steps}
           plan={ui.plan}
           actionLabel={ui.action.label}
           actionType={ui.action.type}
@@ -1157,6 +1217,7 @@ function renderFromUiPayload(
       return (
         <DoneCard
           summary={ui.summary}
+          findings={ui.findings}
           timestamp={message.timestamp}
           isLatestDone={isLatestDone}
           sessionId={sessionId}
@@ -1228,6 +1289,8 @@ function MessageDisplay({
         card = (
           <ActionCard
             situation={parsed.situation}
+            findings={parsed.findings}
+            steps={parsed.steps}
             plan={parsed.plan}
             actionLabel={parsed.actionLabel}
             actionType={parsed.actionType}
@@ -1265,6 +1328,7 @@ function MessageDisplay({
         card = (
           <DoneCard
             summary={parsed.summary}
+            findings={parsed.findings}
             timestamp={message.timestamp}
             isLatestDone={isLatestDone}
             sessionId={sessionId}
@@ -1525,7 +1589,7 @@ function SuggestionCards({
 }) {
   const { t } = useLocale();
   const [contextual, setContextual] = useState<
-    { icon: string; label: string; description: string }[]
+    { icon: string; label: string }[]
   >([]);
 
   useEffect(() => {
@@ -1534,7 +1598,6 @@ function SuggestionCards({
         entries.slice(0, 2).map((e) => ({
           icon: "\uD83D\uDD04",
           label: t("chat.checkOn", { title: e.title }),
-          description: t("chat.followUp"),
         })),
       );
     }).catch(() => {});
@@ -1543,51 +1606,68 @@ function SuggestionCards({
   const suggestions = SUGGESTION_KEYS.map((s) => ({
     icon: s.icon,
     label: t(s.labelKey),
-    description: t(s.descKey),
   }));
-  const allSuggestions = [...contextual, ...suggestions].slice(0, 4);
+  // Cap follow-ups + defaults at six chips. Long follow-up titles wrap
+  // gracefully because the row uses flex-wrap, not a fixed grid.
+  const allSuggestions = [...contextual, ...suggestions].slice(0, 6);
 
   return (
-    <div className="flex flex-col items-center text-text-muted">
-      <div className="grid grid-cols-2 gap-3 w-full max-w-md">
-        {allSuggestions.map((s) => (
-          <button
-            key={s.label}
-            onClick={() => onSelect(s.label)}
-            disabled={disabled}
-            className="flex items-start gap-3 px-4 py-4 rounded-xl border border-border-primary/50 bg-bg-secondary hover:bg-bg-tertiary hover:border-accent-blue/40 transition-all text-left cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="text-lg mt-0.5">{s.icon}</span>
-            <div className="min-w-0">
-              <div className="text-sm font-medium text-text-primary leading-snug">
-                {s.label}
-              </div>
-              <div className="text-xs text-text-muted mt-0.5">
-                {s.description}
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-wrap justify-center gap-2 w-full max-w-2xl">
+      {allSuggestions.map((s) => (
+        <button
+          key={s.label}
+          onClick={() => onSelect(s.label)}
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] text-text-secondary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{
+            background: "var(--color-bg-secondary)",
+            border: "1px solid var(--color-surface-card-border)",
+          }}
+        >
+          <span className="text-[13px] leading-none">{s.icon}</span>
+          <span className="truncate max-w-[260px]">{s.label}</span>
+        </button>
+      ))}
     </div>
   );
 }
 
 function WelcomeHero({ hasContextual, learnMode }: { hasContextual: boolean; learnMode?: boolean }) {
   const { t } = useLocale();
+  // Default empty-state uses a directive two-line headline ("Tell me what's
+  // wrong." + aurora-tinted "I'll handle the rest."). Learn mode and the
+  // contextual branch keep the existing greeting/subtitle so the personality
+  // shift only applies to the cold-start, non-contextual chat empty state.
+  const useDirective = !learnMode && !hasContextual;
   return (
-    <div className="flex flex-col items-center text-text-muted">
-      <NoahIcon className="w-14 h-14 rounded-2xl mb-4" alt="Noah" />
-      <p className="text-2xl font-semibold text-text-primary mb-1 tracking-tight">
-        {learnMode ? t("welcome.learnGreeting") : t("welcome.greeting")}
-      </p>
-      <p className="text-base text-text-secondary">
-        {learnMode
-          ? t("welcome.learnSubtitle")
-          : hasContextual
-            ? t("welcome.subtitleContextual")
-            : t("welcome.subtitleDefault")}
-      </p>
+    <div className="relative flex flex-col items-center text-text-muted">
+      {useDirective && (
+        <div
+          aria-hidden
+          className="aurora-blob"
+          style={{ width: 360, height: 360, top: -60, left: "50%", transform: "translateX(-50%)" }}
+        />
+      )}
+      <NoahIcon className="relative w-16 h-16 rounded-2xl mb-4" alt="Noah" />
+      {useDirective ? (
+        <>
+          <p className="relative text-2xl font-semibold text-text-primary tracking-tight">
+            {t("welcome.directive.line1")}
+          </p>
+          <p className="relative text-2xl font-semibold tracking-tight">
+            <span className="aurora-text">{t("welcome.directive.line2")}</span>
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="relative text-2xl font-semibold text-text-primary mb-1 tracking-tight">
+            {learnMode ? t("welcome.learnGreeting") : t("welcome.greeting")}
+          </p>
+          <p className="relative text-base text-text-secondary">
+            {learnMode ? t("welcome.learnSubtitle") : t("welcome.subtitleContextual")}
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -1745,7 +1825,7 @@ export function ChatPanel() {
       {/* Composer is a "launch surface" — the aurora-focus class gives it
           a subtle gradient ring + glow on focus-within, communicating
           "you are about to issue a command to Noah". */}
-      <div className="flex items-end gap-2 bg-bg-secondary rounded-2xl border border-border-primary aurora-focus shadow-sm">
+      <div className="flex items-center gap-2 bg-bg-secondary rounded-2xl border composer-launch">
         <textarea
           ref={textareaRef}
           value={input}
@@ -1754,9 +1834,9 @@ export function ChatPanel() {
           placeholder={sessionMode === "learn" ? t("chat.learnPlaceholder") : t("chat.placeholder")}
           rows={1}
           disabled={isProcessing}
-          className="flex-1 bg-transparent text-base text-text-primary placeholder-text-muted px-4 py-3 resize-none outline-none min-h-[44px] max-h-[300px]"
+          className="flex-1 self-stretch bg-transparent text-base text-text-primary placeholder-text-muted px-4 py-3 resize-none outline-none min-h-[44px] max-h-[300px]"
         />
-        <div className="flex items-center gap-2 pr-2 pb-1.5">
+        <div className="flex items-center gap-2 pr-2">
           {isProcessing ? (
             <>
               <button
@@ -1799,17 +1879,17 @@ export function ChatPanel() {
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex-1 overflow-y-auto px-6 pt-4">
         {showWelcome ? (
-          <div className="flex flex-col items-center justify-center h-full gap-8">
+          <div className="flex flex-col items-center justify-center h-full gap-6">
             <WelcomeHero hasContextual={false} learnMode={sessionMode === "learn"} />
+            <div className="w-full">
+              {inputCard}
+            </div>
             {sessionMode !== "learn" && !input.trim() && (
               <SuggestionCards
                 onSelect={(text) => sendMessage(text)}
                 disabled={isProcessing}
               />
             )}
-            <div className="w-full mb-4">
-              {inputCard}
-            </div>
           </div>
         ) : (
           <div className="flex flex-col min-h-full">

@@ -382,7 +382,15 @@ fn scan_flat_playbooks(dir: &Path) -> Vec<(String, String)> {
     for entry in entries.flatten() {
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
-        if path.is_file() && name.ends_with(".md") && name != "TEMPLATE.md" {
+        // Skip the template stub, dev TODO notes, and any underscore-
+        // prefixed files. This lets engineers drop scratch notes next
+        // to the playbooks without breaking the bundle scanner.
+        if path.is_file()
+            && name.ends_with(".md")
+            && name != "TEMPLATE.md"
+            && !name.starts_with("TODO-")
+            && !name.starts_with("_")
+        {
             if let Ok(content) = std::fs::read_to_string(&path) {
                 results.push((name, content));
             }

@@ -5,6 +5,10 @@
     "situation": "Situation",
     "plan": "Plan",
     "result": "Result",
+    "question": "Question",
+    "whatIChecked": "What I checked",
+    "whatIdDo": "Here's what I'd do",
+    "whatIFixed": "What I fixed",
     "sent": "Sent",
     "submit": "Submit",
     "continue": "Continue",
@@ -34,6 +38,10 @@
     "greeting": "Hey, I'm Noah",
     "subtitleContextual": "What's going on? Or check in on something I know about.",
     "subtitleDefault": "Your computer helper. What's going on?",
+    "directive": {
+      "line1": "Tell me what's wrong.",
+      "line2": "I'll handle the rest."
+    },
     "learnGreeting": "What would you like me to learn?",
     "learnSubtitle": "Share a link to a tutorial or guide, or just tell me in your own words."
   },
@@ -110,6 +118,8 @@
     "capHitHeadline": "You've hit your trial quota",
     "capHitBody": "Keep Noah going — $4.99/mo or $50/yr, cancel any time.",
     "trustBadge": "$0 today · cancel any time · no auto-charge during trial",
+    "trustPill": "7-day trial · no card",
+    "planAriaLabel": "Choose a plan",
     "footnote": "$0 today · cancel any time · we'll never charge during your trial.",
     "plan": {
       "annual": {
@@ -177,6 +187,7 @@
     "openAdvancedTooltip": "Advanced options"
   },
   "onboarding": {
+    "eyebrow": "Get started",
     "greeting": "Hi, I'm Noah. What's going on with your Mac?",
     "subgreeting": "Pick the closest match — you can tell me more in a moment.",
     "backLabel": "Back",

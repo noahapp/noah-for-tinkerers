@@ -129,13 +129,18 @@ export function ActionApproval() {
           </button>
           <button
             onClick={() => handleApprove()}
-            className="px-4 py-2 rounded-lg text-sm text-white bg-accent-green hover:bg-accent-green/80 transition-colors cursor-pointer"
+            className="btn-launch px-4 py-2 rounded-lg text-sm cursor-pointer"
           >
             {t("approval.approve")}
           </button>
           <button
             onClick={() => handleApprove(true)}
-            className="px-4 py-2 rounded-lg text-sm text-accent-green border border-accent-green/40 hover:bg-accent-green/10 transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-lg text-sm transition-colors cursor-pointer"
+            style={{
+              color: "var(--color-accent-indigo)",
+              border: "1px solid rgba(99, 102, 241, 0.4)",
+              background: "transparent",
+            }}
           >
             {t("approval.approveAll")}
           </button>

@@ -5,7 +5,11 @@
   "welcome": {
     "greeting": "Hola, soy Noah",
     "subtitleContextual": "¿Qué está pasando? O revisa algo que ya conozco.",
-    "subtitleDefault": "Tu asistente para la computadora. ¿Qué está pasando?"
+    "subtitleDefault": "Tu asistente para la computadora. ¿Qué está pasando?",
+    "directive": {
+      "line1": "Cuéntame qué pasa.",
+      "line2": "Yo me encargo del resto."
+    }
   },
   "sidebar": {
     "newChat": "Nuevo chat",

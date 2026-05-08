@@ -46,7 +46,10 @@ export function TrialBanner() {
       </span>
       <span className="text-text-muted">— {dateText}</span>
       <span className="text-text-muted/40 mx-1">·</span>
-      <span className="text-accent-green hover:underline">
+      <span
+        className="hover:underline font-medium"
+        style={{ color: "var(--color-accent-indigo)" }}
+      >
         {t("trialBanner.subscribeCta")}
       </span>
     </button>

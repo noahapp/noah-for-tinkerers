@@ -139,7 +139,7 @@ export function BillingSection() {
           <button
             onClick={handleUpgrade}
             disabled={opening === "upgrade"}
-            className="px-3 py-1.5 rounded-lg bg-accent-green text-xs text-white font-medium hover:bg-accent-green/80 transition-colors disabled:opacity-50"
+            className="btn-launch px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50"
           >
             {opening === "upgrade"
               ? t("subscribe.opening")

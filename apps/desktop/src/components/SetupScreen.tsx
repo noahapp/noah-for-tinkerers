@@ -77,11 +77,11 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
               style={{
                 borderColor:
                   authPath === "invite"
-                    ? "var(--color-accent-green)"
+                    ? "rgba(99, 102, 241, 0.5)"
                     : "var(--color-border-primary)",
                 backgroundColor:
                   authPath === "invite"
-                    ? "var(--color-accent-green-bg, rgba(52, 199, 89, 0.08))"
+                    ? "var(--color-accent-blue-soft)"
                     : "transparent",
               }}
             >
@@ -93,7 +93,7 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
                   setAuthPath("invite");
                   setError(null);
                 }}
-                className="accent-[var(--color-accent-green)]"
+                className="accent-[var(--color-accent-indigo)]"
               />
               <div>
                 <div className="text-sm font-medium text-text-primary">
@@ -110,11 +110,11 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
               style={{
                 borderColor:
                   authPath === "api_key"
-                    ? "var(--color-accent-green)"
+                    ? "rgba(99, 102, 241, 0.5)"
                     : "var(--color-border-primary)",
                 backgroundColor:
                   authPath === "api_key"
-                    ? "var(--color-accent-green-bg, rgba(52, 199, 89, 0.08))"
+                    ? "var(--color-accent-blue-soft)"
                     : "transparent",
               }}
             >
@@ -126,7 +126,7 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
                   setAuthPath("api_key");
                   setError(null);
                 }}
-                className="accent-[var(--color-accent-green)]"
+                className="accent-[var(--color-accent-indigo)]"
               />
               <div>
                 <div className="text-sm font-medium text-text-primary">
@@ -174,7 +174,7 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="w-full py-2.5 rounded-xl bg-accent-green text-white text-sm font-medium hover:bg-accent-green/80 transition-colors cursor-pointer disabled:opacity-50"
+            className="btn-launch w-full py-2.5 rounded-xl text-sm font-medium cursor-pointer"
           >
             {saving
               ? authPath === "invite"
@@ -192,7 +192,8 @@ export function SetupScreen({ onComplete }: SetupScreenProps) {
                 href="https://platform.claude.com/settings/keys"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-accent-green hover:underline"
+                className="hover:underline"
+                style={{ color: "var(--color-accent-indigo)" }}
               >
                 {t("setup.getFromAnthropic")}
               </a>

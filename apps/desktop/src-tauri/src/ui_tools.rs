@@ -60,6 +60,18 @@ pub fn ui_payload_from_tool_call(name: &str, input: &Value) -> Result<String> {
             if let Some(plan_text) = plan {
                 payload["plan"] = json!(plan_text);
             }
+            // Structured diagnostic facts. Pass-through; client renders the grid.
+            if let Some(findings) = input.get("findings") {
+                if findings.is_array() {
+                    payload["findings"] = findings.clone();
+                }
+            }
+            // Structured ordered remediation plan. Wins over plan_md when present.
+            if let Some(steps) = input.get("steps") {
+                if steps.is_array() {
+                    payload["steps"] = steps.clone();
+                }
+            }
             if let Some(qr) = input.get("qr_data").and_then(|v| v.as_str()) {
                 payload["qr_data"] = json!(qr);
             }
@@ -170,7 +182,16 @@ pub fn ui_payload_from_tool_call(name: &str, input: &Value) -> Result<String> {
                 .or_else(|| input.get("summary"))
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| anyhow!("missing summary_md"))?;
-            Ok(json!({ "kind": "done", "summary": summary }).to_string())
+            let mut payload = json!({ "kind": "done", "summary": summary });
+            // Optional structured findings — same shape as ui_spa.findings.
+            // Lets the completion card show "what was checked" without
+            // re-narrating measurements as prose markdown.
+            if let Some(findings) = input.get("findings") {
+                if findings.is_array() {
+                    payload["findings"] = findings.clone();
+                }
+            }
+            Ok(payload.to_string())
         }
         _ => Err(anyhow!("not a ui tool")),
     }
@@ -185,20 +206,53 @@ struct UiDoneTool;
 impl Tool for UiSpaTool {
     fn name(&self) -> &str { "ui_spa" }
     fn description(&self) -> &str {
-        "Emit a Situation/Plan/Action (SPA) panel for the UI. `situation_md` and `plan_md` are Markdown strings."
+        "Emit a Situation/Plan/Action (SPA) panel for the UI. `situation_md` is ONE sentence; structured diagnostic facts go in `findings`; ordered remediation actions go in `steps`."
     }
     fn input_schema(&self) -> Value {
         json!({
           "type":"object",
           "properties":{
-            "situation_md":{"type":"string","description":"Markdown text shown to the user. For RUN_STEP: describe what Noah will do. For WAIT_FOR_USER: MUST contain concrete step-by-step instructions the user needs to follow (commands to run, files to edit, etc.) — never just say you will guide them."},
-            "plan_md":{"type":"string","description":"Optional plan text in Markdown. Omit for WAIT_FOR_USER (instructions go in situation_md instead)."},
-            "qr_data":{"type":"string","description":"Optional data string to render as a scannable QR code (e.g. a URL or auth token the user must scan with their phone)."},
-            "action_label":{"type":"string","description":"Button label. RUN_STEP examples: 'Fix it', 'Install'. WAIT_FOR_USER examples: 'I've done this', 'Done'."},
-            "action_type":{"type":"string","enum":["RUN_STEP","WAIT_FOR_USER"],"description":"RUN_STEP: Noah executes an action automatically. WAIT_FOR_USER: user must complete a manual action outside Noah — situation_md must contain the exact instructions."}
+            "situation_md":{
+              "type":"string",
+              "maxLength": 280,
+              "description":"ONE SENTENCE stating what's wrong (RUN_STEP) or the concrete instructions the user must follow (WAIT_FOR_USER). No markdown headers, no bullet lists, no sub-points. Inline **bold** is fine for a key term. If you have measurements, put them in `findings`. If you have steps, put them in `steps`."
+            },
+            "findings":{
+              "type":"array",
+              "description":"Optional structured diagnostic facts. Use this whenever you have measurements, check results, or system facts. Do NOT cram these into situation_md as bullets.",
+              "items":{
+                "type":"object",
+                "properties":{
+                  "label":{"type":"string","maxLength":24,"description":"Short label, e.g. 'Disk usage', 'Ping (avg)', 'Network'."},
+                  "value":{"type":"string","maxLength":24,"description":"The headline value: a number, a yes/no, a name. e.g. '94%', '18ms', 'Failed', '192.168.1.42'."},
+                  "tone":{"type":"string","enum":["good","warn","bad","neutral"],"description":"Color of the value. DEFAULT IS 'neutral'. Use 'good'/'warn'/'bad' ONLY when the value reflects a quality judgment (latency low/high, disk free/full, signal strong/weak). For non-evaluative facts (IPs, DNS servers, hostnames, configs, identifiers) use 'neutral' — do NOT mark them 'good'."},
+                  "sub":{"type":"string","maxLength":80,"description":"Optional sub-line BELOW the value. Use for either: (a) qualifier of the value ('avg, 3 packets', 'usually <15ms'), or (b) a paired secondary value when combining related readings into one cell ('DNS: 192.168.1.1'). ≤10 words."}
+                },
+                "required":["label","value"]
+              },
+              "maxItems":6
+            },
+            "steps":{
+              "type":"array",
+              "description":"Optional ordered remediation plan. Prefer this over plan_md when the plan has discrete actions. Each label is a single action.",
+              "items":{
+                "type":"object",
+                "properties":{
+                  "label":{"type":"string","maxLength":80,"description":"Action description. ONE action per step — do not summarize multiple checks into one step."},
+                  "status":{"type":"string","enum":["pending","active","done"],"description":"Execution state. Defaults to 'pending'."},
+                  "detail":{"type":"string","maxLength":80,"description":"Optional sub-line: rationale or what the step measures."}
+                },
+                "required":["label"]
+              },
+              "maxItems":6
+            },
+            "plan_md":{"type":"string","description":"DEPRECATED — prefer `steps`. Free-form Markdown plan; only use when the plan is genuinely prose-shaped (rare). Omit for WAIT_FOR_USER."},
+            "qr_data":{"type":"string","description":"Optional data string to render as a scannable QR code."},
+            "action_label":{"type":"string","maxLength":24,"description":"Button label. RUN_STEP examples: 'Fix it', 'Install'. WAIT_FOR_USER examples: 'I've done this', 'Done'."},
+            "action_type":{"type":"string","enum":["RUN_STEP","WAIT_FOR_USER"],"description":"RUN_STEP: Noah executes. WAIT_FOR_USER: user acts manually — situation_md must contain the exact instructions."}
           },
           "required":["situation_md","action_label","action_type"],
-          "additionalProperties":false
+          "additionalProperties":true
         })
     }
     fn safety_tier(&self) -> SafetyTier { SafetyTier::ReadOnly }
@@ -299,13 +353,33 @@ impl Tool for UiInfoTool {
 #[async_trait]
 impl Tool for UiDoneTool {
     fn name(&self) -> &str { "ui_done" }
-    fn description(&self) -> &str { "Emit a completion card in Markdown." }
+    fn description(&self) -> &str { "Emit a completion card. `summary_md` is one short paragraph; structured facts (what was measured / what changed) go in `findings`." }
     fn input_schema(&self) -> Value {
         json!({
           "type":"object",
-          "properties":{"summary_md":{"type":"string","description":"Completion summary in Markdown format."}},
+          "properties":{
+            "summary_md":{
+              "type":"string",
+              "description":"Short completion summary (1–3 sentences). No nested headers, no bulleted measurements — use `findings` for those."
+            },
+            "findings":{
+              "type":"array",
+              "description":"Optional structured facts about what was checked or what changed. Same shape as ui_spa.findings.",
+              "items":{
+                "type":"object",
+                "properties":{
+                  "label":{"type":"string","maxLength":24},
+                  "value":{"type":"string","maxLength":24},
+                  "tone":{"type":"string","enum":["good","warn","bad","neutral"]},
+                  "sub":{"type":"string","maxLength":80}
+                },
+                "required":["label","value"]
+              },
+              "maxItems":6
+            }
+          },
           "required":["summary_md"],
-          "additionalProperties":false
+          "additionalProperties":true
         })
     }
     fn safety_tier(&self) -> SafetyTier { SafetyTier::ReadOnly }

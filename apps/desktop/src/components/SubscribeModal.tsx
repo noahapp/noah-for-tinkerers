@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { Check } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import * as commands from "../lib/tauri-commands";
 import { useLocale } from "../i18n";
@@ -129,14 +128,23 @@ export function SubscribeModal({
       onClick={onDismiss}
     >
       <div
-        className="w-full max-w-[440px] mx-4 rounded-3xl bg-bg-primary border border-border-primary shadow-2xl overflow-hidden"
+        className="w-full max-w-[470px] mx-4 rounded-3xl bg-bg-primary border border-border-primary shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header — value-led. Trust badge moves to a footnote
-            below the CTA so the user reads "keep Noah" before
-            "we promise we won't charge you". No decorative top
-            stripe — the headline carries the moment. */}
+        {/* Header — value-led. Trust pill at the top frames the moment
+            ("trial · no card"); headline + body follow. The detailed
+            footnote still appears below the CTA for reassurance. */}
         <div className="px-7 pt-7 pb-5">
+          <span
+            className="inline-flex items-center px-[13px] py-[6px] rounded-full text-[11px] font-semibold uppercase tracking-[0.08em] whitespace-nowrap mb-4"
+            style={{
+              background: "var(--aurora-soft)",
+              border: "1px solid rgba(99, 102, 241, 0.28)",
+              color: "var(--color-accent-indigo)",
+            }}
+          >
+            {t("subscribe.trustPill")}
+          </span>
           <h3 className="text-[24px] font-semibold text-text-primary leading-[1.15] tracking-tight">
             {headline}
           </h3>
@@ -145,82 +153,72 @@ export function SubscribeModal({
           </p>
         </div>
 
-        {/* Plan picker */}
-        <div className="px-7 pb-2 space-y-2">
-          {(["annual", "monthly"] as const).map((p) => {
-            const selected = plan === p;
-            const isAnnual = p === "annual";
-            const savings = isAnnual ? t("subscribe.plan.annual.savingsBadge") : null;
-            return (
-              <label
-                key={p}
-                className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border cursor-pointer transition-all relative"
-                style={{
-                  borderColor: selected
-                    ? "rgba(99, 102, 241, 0.5)"
-                    : "var(--color-border-primary)",
-                  borderWidth: selected ? "1.5px" : "1px",
-                  backgroundColor: selected
-                    ? "rgba(99, 102, 241, 0.08)"
-                    : "transparent",
-                }}
-              >
-                <span
-                  className="flex items-center justify-center w-5 h-5 rounded-full border shrink-0 transition-all"
+        {/* Plan picker — segmented control. One tap to compare prices.
+            Annual segment carries a "SAVE X%" badge anchored to its top-right
+            corner (anchored to the segment, not absolute on the modal). */}
+        <div className="px-7 pb-2">
+          <div
+            role="radiogroup"
+            aria-label={t("subscribe.planAriaLabel")}
+            className="relative inline-flex w-full p-1 rounded-2xl"
+            style={{
+              background: "var(--color-bg-secondary)",
+              border: "1px solid var(--color-surface-card-border)",
+            }}
+          >
+            {(["annual", "monthly"] as const).map((p) => {
+              const selected = plan === p;
+              const isAnnual = p === "annual";
+              const savings = isAnnual ? t("subscribe.plan.annual.savingsBadge") : null;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  aria-label={t(`subscribe.plan.${p}.label`)}
+                  onClick={() => setPlan(p)}
+                  className="relative flex-1 px-4 py-3 rounded-xl cursor-pointer transition-all flex flex-col items-center"
                   style={{
-                    borderColor: selected
-                      ? "transparent"
-                      : "var(--color-border-primary)",
-                    background: selected
-                      ? "var(--aurora)"
-                      : "transparent",
-                    boxShadow: selected ? "var(--aurora-glow)" : "none",
+                    background: selected ? "var(--aurora)" : "transparent",
+                    color: selected ? "white" : "var(--color-text-secondary)",
+                    boxShadow: selected
+                      ? "0 6px 16px -4px rgba(99, 102, 241, 0.5)"
+                      : "none",
                   }}
                 >
-                  {selected && (
-                    <Check size={12} strokeWidth={3} className="text-white" />
-                  )}
-                </span>
-                <input
-                  type="radio"
-                  name="noah-plan"
-                  checked={selected}
-                  onChange={() => setPlan(p)}
-                  className="sr-only"
-                />
-                <div className="flex-1 min-w-0 flex items-baseline gap-2">
-                  <span className="text-sm font-semibold text-text-primary">
+                  <span
+                    className="text-[11px] font-semibold uppercase tracking-[0.08em]"
+                    style={{ opacity: selected ? 0.85 : 0.7 }}
+                  >
                     {t(`subscribe.plan.${p}.label`)}
                   </span>
-                  <span className="text-sm text-text-primary">
+                  <span className="mt-1 text-[15px] font-semibold leading-tight">
                     {t(`subscribe.plan.${p}.price`)}
-                    <span className="text-text-muted text-[12px]">
+                    <span className="text-[12px] font-medium opacity-80">
                       {t(`subscribe.plan.${p}.priceUnit`)}
                     </span>
                   </span>
-                  <span className="text-[11.5px] text-text-muted ml-auto">
-                    {t(`subscribe.plan.${p}.desc`)}
-                  </span>
-                </div>
-                {savings && (
-                  <span
-                    className="absolute -top-2 right-4 px-2 py-[1px] rounded-full text-[10px] font-semibold uppercase tracking-wider transition-all"
-                    style={{
-                      background: selected
-                        ? "var(--aurora)"
-                        : "var(--color-bg-tertiary)",
-                      color: selected ? "white" : "var(--color-text-muted)",
-                      boxShadow: selected
-                        ? "0 4px 10px -2px rgba(99, 102, 241, 0.5)"
-                        : "none",
-                    }}
-                  >
-                    {savings}
-                  </span>
-                )}
-              </label>
-            );
-          })}
+                  {savings && (
+                    <span
+                      className="absolute -top-2 right-3 px-2 py-[1px] rounded-full text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap transition-all"
+                      style={{
+                        background: selected
+                          ? "var(--color-accent-green)"
+                          : "var(--color-bg-tertiary)",
+                        color: selected ? "white" : "var(--color-text-muted)",
+                        boxShadow: selected
+                          ? "0 4px 10px -2px rgba(20, 184, 166, 0.5)"
+                          : "none",
+                      }}
+                    >
+                      {savings}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {error && (

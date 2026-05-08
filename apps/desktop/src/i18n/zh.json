@@ -34,6 +34,10 @@
     "greeting": "你好，我是 Noah",
     "subtitleContextual": "有什么问题？或者看看我已知道的。",
     "subtitleDefault": "你的电脑助手。有什么问题？",
+    "directive": {
+      "line1": "告诉我哪里出了问题。",
+      "line2": "剩下的交给我。"
+    },
     "learnGreeting": "你想让我学习什么？",
     "learnSubtitle": "分享一个教程或指南的链接，或者用你自己的话告诉我。"
   },

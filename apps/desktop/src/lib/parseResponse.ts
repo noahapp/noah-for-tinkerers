@@ -1,7 +1,44 @@
+import { sanitizeSpa } from "./sanitizeSpa";
+
+/** Color of a Finding's value. Default is `neutral`. `good`/`warn`/`bad`
+ *  are reserved for values that reflect a quality judgment — never for
+ *  non-evaluative facts like IPs, DNS servers, or identifiers. */
+export type Tone = "good" | "warn" | "bad" | "neutral";
+
+/** A single diagnostic fact rendered as a label/value tile. */
+export interface Finding {
+  /** Short label, ≤24 chars. e.g. "Disk usage", "Ping (avg)". */
+  label: string;
+  /** Headline value, ≤24 chars. e.g. "94%", "18ms", "Failed", "192.168.1.42". */
+  value: string;
+  /** Defaults to "neutral". */
+  tone?: Tone;
+  /** Optional sub-line below the value, ≤80 chars. Used for either a
+   *  qualifier of the value ("avg, 3 packets") or a paired secondary
+   *  value when combining related readings into one cell ("DNS: 192.168.1.1"). */
+  sub?: string;
+}
+
+/** A single step in an ordered remediation plan. */
+export interface Step {
+  /** Action description, ≤80 chars. e.g. "Quit Chrome (4.2 GB)". */
+  label: string;
+  /** Execution state. Defaults to "pending". */
+  status?: "pending" | "active" | "done";
+  /** Optional sub-line, ≤80 chars. */
+  detail?: string;
+}
+
 export type ParsedResponse =
   | {
       type: "action";
+      /** ALWAYS present. One sentence — the diagnosis headline. */
       situation: string;
+      /** Optional structured diagnostic facts. */
+      findings?: Finding[];
+      /** Optional ordered remediation plan (preferred over `plan`). */
+      steps?: Step[];
+      /** Legacy free-form markdown plan; fallback when `steps` absent. */
       plan?: string;
       actionLabel: string;
       actionType?: string;
@@ -17,7 +54,7 @@ export type ParsedResponse =
         multiSelect?: boolean;
       }>;
     }
-  | { type: "done"; summary: string }
+  | { type: "done"; summary: string; findings?: Finding[] }
   | { type: "info"; summary: string }
   | { type: "text"; content: string };
 
@@ -47,6 +84,8 @@ export function parseResponse(raw: string): ParsedResponse {
           summary?: string;
           situation?: string;
           plan?: string;
+          findings?: Finding[];
+          steps?: Step[];
           action?: {
             label?: string;
             type?: string;
@@ -65,13 +104,15 @@ export function parseResponse(raw: string): ParsedResponse {
           obj.situation &&
           obj.action?.label
         ) {
-          return {
+          return sanitizeSpa({
             type: "action",
             situation: obj.situation,
+            findings: Array.isArray(obj.findings) ? obj.findings : undefined,
+            steps: Array.isArray(obj.steps) ? obj.steps : undefined,
             plan: obj.plan,
             actionLabel: obj.action.label,
             actionType: obj.action.type,
-          };
+          });
         }
         if (kind === "user_question" && Array.isArray(obj.questions)) {
           return {
@@ -85,7 +126,11 @@ export function parseResponse(raw: string): ParsedResponse {
           };
         }
         if (kind === "done" && obj.summary) {
-          return { type: "done", summary: obj.summary };
+          return {
+            type: "done",
+            summary: obj.summary,
+            findings: Array.isArray(obj.findings) ? obj.findings : undefined,
+          };
         }
         if (kind === "info" && obj.summary) {
           return { type: "info", summary: obj.summary };

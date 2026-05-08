@@ -7,6 +7,7 @@ import type {
   AssistantActionType,
   UserEventType,
 } from "../lib/tauri-commands";
+import { recordAssistantUiShape } from "../lib/spaShapeTelemetry";
 
 /**
  * Trial-modal trigger model:
@@ -76,13 +77,18 @@ export function useAgent(): UseAgentReturn {
   // Only show processing indicator when the current session matches the processing one.
   const isProcessing = processingSessionId !== null && processingSessionId === sessionId;
 
-  /** Shared post-response handler: sync changes and link to latest message. */
+  /** Shared post-response handler: sync changes and link to latest message.
+   *  Only runs if the user is still viewing the session that produced the
+   *  response — otherwise the change list (and its link to a "last assistant
+   *  message") would be written against whichever session the user has since
+   *  switched to. */
   const syncChanges = useCallback(
-    async (prevChangeIds: Set<string>) => {
+    async (originSessionId: string, prevChangeIds: Set<string>) => {
       try {
         const sid = useSessionStore.getState().sessionId;
-        if (!sid) return;
-        const updatedChanges = await commands.getChanges(sid);
+        if (!sid || sid !== originSessionId) return;
+        const updatedChanges = await commands.getChanges(originSessionId);
+        if (useSessionStore.getState().sessionId !== originSessionId) return;
         setChanges(updatedChanges);
         const newChangeIds = updatedChanges
           .filter((c) => !prevChangeIds.has(c.id))
@@ -101,10 +107,24 @@ export function useAgent(): UseAgentReturn {
     [setChanges, updateMessage],
   );
 
+  /** True iff the user is still viewing the session that initiated the
+   *  pending request. If they switched threads mid-flight, the in-flight
+   *  response must NOT be written into the current chat store — that would
+   *  graft a foreign reply onto whatever thread they navigated to. The
+   *  server has already journaled the message; switching back to the
+   *  origin session reloads it from disk. */
+  const stillViewing = useCallback((originSessionId: string): boolean => {
+    return useSessionStore.getState().sessionId === originSessionId;
+  }, []);
+
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || !sessionId) return;
+      // Snapshot the session this message belongs to. All post-await
+      // store writes (assistant reply, error system message, change sync)
+      // are gated on the user still viewing this session. See `stillViewing`.
+      const originSessionId = sessionId;
 
       // Consumer path: check entitlement before sending.
       // Paywalled → open modal, abort.
@@ -148,18 +168,29 @@ export function useAgent(): UseAgentReturn {
       const prevChangeIds = new Set(changes.map((c) => c.id));
 
       addMessage({ role: "user", content: trimmed });
-      setProcessingSession(sessionId);
+      setProcessingSession(originSessionId);
 
       try {
-        const result = await commands.sendMessageV2(sessionId, trimmed);
-        addMessage({
-          role: "assistant",
-          content: result.text,
-          assistantUi: result.assistant_ui,
-        });
-        await syncChanges(prevChangeIds);
+        const result = await commands.sendMessageV2(originSessionId, trimmed);
+        recordAssistantUiShape(result.assistant_ui);
+        if (stillViewing(originSessionId)) {
+          addMessage({
+            role: "assistant",
+            content: result.text,
+            assistantUi: result.assistant_ui,
+          });
+        } else {
+          // Reply belongs to a thread the user has navigated away from.
+          // The server has journaled it; surface a sidebar dot instead of
+          // grafting it onto whichever thread is currently visible.
+          useSessionStore.getState().markSessionUnread(originSessionId);
+        }
+        await syncChanges(originSessionId, prevChangeIds);
       } catch (err) {
         // 402 from the LLM proxy means paywall; 429 means usage cap.
+        // These global modal triggers fire regardless of which thread is
+        // currently visible — the user needs to know about billing/quota
+        // even if they navigated away.
         const msg = err instanceof Error ? err.message : String(err);
         if (/\b402\b/.test(msg)) {
           useConsumerStore.getState().openSubscribeModal("paywall");
@@ -169,15 +200,23 @@ export function useAgent(): UseAgentReturn {
           useConsumerStore.getState().refresh();
         }
         console.error("Agent communication error:", err);
-        addMessage({
-          role: "system",
-          content: cleanError(err),
-        });
+        if (stillViewing(originSessionId)) {
+          addMessage({
+            role: "system",
+            content: cleanError(err),
+          });
+        } else {
+          useSessionStore.getState().markSessionUnread(originSessionId);
+        }
       } finally {
-        setProcessingSession(null);
+        // Only clear the processing flag if it still belongs to this send.
+        // A concurrent send in another session may have replaced it.
+        if (useSessionStore.getState().processingSessionId === originSessionId) {
+          setProcessingSession(null);
+        }
       }
     },
-    [sessionId, addMessage, setProcessingSession, changes, syncChanges],
+    [sessionId, addMessage, setProcessingSession, changes, syncChanges, stillViewing],
   );
 
   const sendConfirmation = useCallback(
@@ -189,6 +228,7 @@ export function useAgent(): UseAgentReturn {
       if (!sessionId) return;
       void actionType; // first-fix modal trigger removed — first issue runs uninterrupted
 
+      const originSessionId = sessionId;
       const prevChangeIds = new Set(changes.map((c) => c.id));
 
       const confirmText = actionLabel || "Go ahead";
@@ -197,36 +237,49 @@ export function useAgent(): UseAgentReturn {
         role: "user",
         content: confirmText,
       });
-      setProcessingSession(sessionId);
+      setProcessingSession(originSessionId);
 
       try {
         const result = await commands.sendMessageV2(
-          sessionId,
+          originSessionId,
           confirmText,
           true,
         );
-        addMessage({
-          role: "assistant",
-          content: result.text,
-          assistantUi: result.assistant_ui,
-        });
-        await syncChanges(prevChangeIds);
+        recordAssistantUiShape(result.assistant_ui);
+        if (stillViewing(originSessionId)) {
+          addMessage({
+            role: "assistant",
+            content: result.text,
+            assistantUi: result.assistant_ui,
+          });
+        } else {
+          useSessionStore.getState().markSessionUnread(originSessionId);
+        }
+        await syncChanges(originSessionId, prevChangeIds);
       } catch (err) {
         console.error("Agent communication error:", err);
-        addMessage({
-          role: "system",
-          content: cleanError(err),
-        });
+        if (stillViewing(originSessionId)) {
+          addMessage({
+            role: "system",
+            content: cleanError(err),
+          });
+        } else {
+          useSessionStore.getState().markSessionUnread(originSessionId);
+        }
       } finally {
-        setProcessingSession(null);
+        if (useSessionStore.getState().processingSessionId === originSessionId) {
+          setProcessingSession(null);
+        }
       }
     },
-    [sessionId, addMessage, markActionTaken, setProcessingSession, changes, syncChanges],
+    [sessionId, addMessage, markActionTaken, setProcessingSession, changes, syncChanges, stillViewing],
   );
 
   const sendEvent = useCallback(
     async (eventType: UserEventType, payload?: string) => {
       if (!sessionId) return;
+
+      const originSessionId = sessionId;
 
       // Show the user's answer in the chat — transparency: what user said = what LLM sees
       if (eventType === "USER_ANSWER_QUESTION" && payload) {
@@ -239,29 +292,40 @@ export function useAgent(): UseAgentReturn {
         } catch { /* best-effort */ }
       }
 
-      setProcessingSession(sessionId);
+      setProcessingSession(originSessionId);
       try {
         const result = await commands.sendUserEvent(
-          sessionId,
+          originSessionId,
           eventType,
           payload,
         );
-        addMessage({
-          role: "assistant",
-          content: result.text,
-          assistantUi: result.assistant_ui,
-        });
+        recordAssistantUiShape(result.assistant_ui);
+        if (stillViewing(originSessionId)) {
+          addMessage({
+            role: "assistant",
+            content: result.text,
+            assistantUi: result.assistant_ui,
+          });
+        } else {
+          useSessionStore.getState().markSessionUnread(originSessionId);
+        }
       } catch (err) {
         console.error("Agent communication error:", err);
-        addMessage({
-          role: "system",
-          content: cleanError(err),
-        });
+        if (stillViewing(originSessionId)) {
+          addMessage({
+            role: "system",
+            content: cleanError(err),
+          });
+        } else {
+          useSessionStore.getState().markSessionUnread(originSessionId);
+        }
       } finally {
-        setProcessingSession(null);
+        if (useSessionStore.getState().processingSessionId === originSessionId) {
+          setProcessingSession(null);
+        }
       }
     },
-    [sessionId, addMessage, setProcessingSession],
+    [sessionId, addMessage, setProcessingSession, stillViewing],
   );
 
   const cancelProcessing = useCallback(async () => {

@@ -77,14 +77,18 @@
   --aurora-soft: linear-gradient(135deg, rgba(91, 155, 213, 0.12), rgba(139, 92, 246, 0.12));
   --aurora-glow: 0 8px 32px -12px rgba(99, 102, 241, 0.5);
   --aurora-glow-hover: 0 12px 40px -10px rgba(99, 102, 241, 0.65);
+  /* Tightened from a wide-spread halo to a contained drop. The previous
+     value bled past the card edge and read as "you're about to do
+     something irreversible" — wrong feeling for "restart Wi-Fi". The
+     aurora gradient still carries the brand; the shadow just grounds it. */
   --aurora-shadow-button:
     0 1px 0 rgba(255, 255, 255, 0.18) inset,
-    0 6px 16px -4px rgba(99, 102, 241, 0.55),
-    0 2px 4px rgba(0, 0, 0, 0.15);
+    0 6px 18px -6px rgba(99, 102, 241, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.18);
   --aurora-shadow-button-hover:
     0 1px 0 rgba(255, 255, 255, 0.22) inset,
-    0 10px 24px -4px rgba(99, 102, 241, 0.7),
-    0 2px 4px rgba(0, 0, 0, 0.18);
+    0 8px 22px -6px rgba(99, 102, 241, 0.7),
+    0 1px 2px rgba(0, 0, 0, 0.2);
 
   /* Commit moments share the launch identity — same aurora gradient,
      same glow family. The .btn-commit class layers premium depth
@@ -111,6 +115,10 @@
   --color-surface-pill: rgba(36, 39, 46, 0.7);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px -12px rgba(0, 0, 0, 0.45);
   --shadow-card-hover: 0 1px 2px rgba(0, 0, 0, 0.25), 0 12px 32px -12px rgba(99, 102, 241, 0.25);
+
+  /* Eyebrow text — muted neutral, NOT accent. Section labels are
+     plumbing; the aurora hairline + gradient CTA carry the brand. */
+  --text-eyebrow: #6f7785;
 }
 
 /* ── Light Mode ──
@@ -122,7 +130,7 @@
  * "System" preference uses matchMedia to toggle the class.
  */
 :root.light {
-    --color-bg-primary: #f4f6fb;
+    --color-bg-primary: #f6f7fa;
     --color-bg-secondary: #ffffff;
     --color-bg-tertiary: #e8ecf4;
     --color-bg-input: #ffffff;
@@ -144,27 +152,33 @@
     --color-accent-blue-soft: rgba(37, 99, 235, 0.08);
     --color-accent-indigo: #4f46e5;
     --color-accent-violet: #7c3aed;
-    /* Aurora-teal in light mode — slightly deeper for contrast on white */
-    --color-accent-green: #0d9488;
-    --color-accent-green-soft: rgba(13, 148, 136, 0.1);
+    /* Light-mode tones tuned per design-agent diff: deeper, less screaming.
+       The dark-mode hex (#14b8a6 teal, #fbbf24 amber) reads as "alert" on
+       a white card; these darker, more-saturated alternates carry the
+       same semantic without shouting. */
+    --color-accent-green: #0f7b5a;
+    --color-accent-green-soft: rgba(15, 123, 90, 0.1);
     --color-accent-red: #dc2626;
-    --color-accent-amber: #d97706;
+    --color-accent-amber: #b86e12;
     --color-accent-yellow: #f59e0b;
     --color-accent-purple: #7c3aed;
 
-    /* Aurora launch — light mode tuned for white-card contrast */
+    /* Aurora launch — light mode tuned for white-card contrast.
+       Per Principle 9: light-mode accents are slightly MORE saturated
+       than dark-mode (white surfaces wash out subtle aurora hues).
+       Soft / glow opacities run ~50–60% higher than dark-mode pairs. */
     --aurora: linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%);
-    --aurora-soft: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(124, 58, 237, 0.1));
-    --aurora-glow: 0 8px 28px -10px rgba(79, 70, 229, 0.4);
-    --aurora-glow-hover: 0 12px 36px -8px rgba(79, 70, 229, 0.55);
+    --aurora-soft: linear-gradient(135deg, rgba(37, 99, 235, 0.16), rgba(124, 58, 237, 0.16));
+    --aurora-glow: 0 8px 28px -10px rgba(79, 70, 229, 0.55);
+    --aurora-glow-hover: 0 12px 36px -8px rgba(79, 70, 229, 0.7);
     --aurora-shadow-button:
       0 1px 0 rgba(255, 255, 255, 0.4) inset,
-      0 6px 16px -4px rgba(79, 70, 229, 0.4),
-      0 1px 2px rgba(15, 23, 41, 0.08);
+      0 6px 18px -6px rgba(79, 70, 229, 0.4),
+      0 1px 2px rgba(15, 23, 41, 0.1);
     --aurora-shadow-button-hover:
       0 1px 0 rgba(255, 255, 255, 0.5) inset,
-      0 10px 24px -4px rgba(79, 70, 229, 0.55),
-      0 1px 2px rgba(15, 23, 41, 0.1);
+      0 8px 22px -6px rgba(79, 70, 229, 0.55),
+      0 1px 2px rgba(15, 23, 41, 0.12);
 
     --commit-gradient: var(--aurora);
     --commit-shadow:
@@ -179,13 +193,21 @@
     --color-status-error: #dc2626;
     --color-status-denied: #7889a5;
 
-    /* Seamless chat surfaces — light */
+    /* Seamless chat surfaces — light. Borders + accent-border are
+       slightly bumped vs. their dark-mode pairs for the same Principle 9
+       reason: light surfaces need stronger boundary cues to read as
+       contained without going hard-bordered. */
     --color-surface-card: #ffffff;
-    --color-surface-card-border: rgba(15, 23, 41, 0.05);
-    --color-accent-border: rgba(37, 99, 235, 0.12);
+    /* Card edge — light mode needs manufactured edges; soft shadow alone
+       melts into the page. 7% slate hairline is the ground truth (per
+       design-agent diff, polish pass 3). */
+    --color-surface-card-border: rgba(15, 23, 41, 0.07);
+    --color-accent-border: rgba(37, 99, 235, 0.2);
     --color-surface-pill: rgba(232, 236, 244, 0.6);
-    --shadow-card: 0 1px 2px rgba(15, 23, 41, 0.04), 0 8px 24px -12px rgba(15, 23, 41, 0.12);
-    --shadow-card-hover: 0 1px 2px rgba(15, 23, 41, 0.04), 0 12px 32px -12px rgba(79, 70, 229, 0.18);
+    --shadow-card: 0 1px 2px rgba(15, 23, 41, 0.05), 0 8px 24px -12px rgba(15, 23, 41, 0.14);
+    --shadow-card-hover: 0 1px 2px rgba(15, 23, 41, 0.05), 0 12px 32px -10px rgba(79, 70, 229, 0.28);
+
+    --text-eyebrow: #6b7280;
 }
 
 /* ── Base Styles ── */
@@ -364,6 +386,39 @@ h1, h2, h3, h4 {
     0 8px 32px -12px rgba(99, 102, 241, 0.4);
 }
 
+/* Composer "launch surface" — Principle 1 says the composer is the
+   gateway and should always feel like a launch button, not a generic
+   form input. Carries a quiet always-on aurora identity (soft tinted
+   border + faint indigo glow) at rest, intensifying on focus-within
+   to the full aurora-focus state above. Distinct from `aurora-focus`,
+   which is invisible at rest. */
+.composer-launch {
+  border-color: rgba(99, 102, 241, 0.22);
+  box-shadow:
+    0 0 0 1px rgba(99, 102, 241, 0.06) inset,
+    0 6px 20px -10px rgba(99, 102, 241, 0.22);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.composer-launch:focus-within {
+  outline: none;
+  border-color: rgba(99, 102, 241, 0.55);
+  box-shadow:
+    0 0 0 4px rgba(99, 102, 241, 0.1),
+    0 10px 36px -10px rgba(99, 102, 241, 0.45);
+}
+:root.light .composer-launch {
+  border-color: rgba(79, 70, 229, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(79, 70, 229, 0.05) inset,
+    0 6px 18px -8px rgba(79, 70, 229, 0.28);
+}
+:root.light .composer-launch:focus-within {
+  border-color: rgba(79, 70, 229, 0.6);
+  box-shadow:
+    0 0 0 4px rgba(79, 70, 229, 0.12),
+    0 10px 36px -8px rgba(79, 70, 229, 0.4);
+}
+
 /* "Done" / "Sent" state — alive, not dead.
    Replaces the grey-pill default for completed actions. The action
    succeeded, so the visual should *feel* successful: aurora-teal
@@ -478,3 +533,83 @@ h1, h2, h3, h4 {
 }
 
 /* (.thinking-dot animation defined above with aurora-dot-bounce) */
+
+/* ════════════════════════════════════════════════════════════
+   AURORA SYSTEM — small primitives (handoff §7)
+   ════════════════════════════════════════════════════════════ */
+
+/* Aurora-tinted text — used in directive headings.
+   Pairs with regular text: "Tell me what's wrong. <I'll handle the rest>" */
+.aurora-text {
+  background-image: var(--aurora);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Eyebrow — small uppercase kicker above section headers.
+   Quiet metadata, NOT signage. Reads like a form-label caption. The
+   brand color lives elsewhere on the card (aurora hairline + gradient
+   CTA); section labels stay neutral so they don't compete with the
+   headline or the metric values for attention. */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-eyebrow);
+  white-space: nowrap;
+}
+.eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text-eyebrow);
+  opacity: 0.7;
+}
+/* `.eyebrow.commit` is intentionally identical to plain `.eyebrow` —
+   no color differentiation. Tone vocabulary is reserved for metric
+   values, not section labels. The class is kept for backward compat
+   in callsites; remove if you grep and find no remaining users. */
+.eyebrow.commit {
+  color: var(--text-eyebrow);
+}
+.eyebrow.commit::before {
+  background: var(--text-eyebrow);
+}
+
+/* Aurora ambient blob — for centered hero surfaces only.
+   Apply via inline style with size/position; class supplies the
+   blur + opacity ramp + light-mode tuning. */
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--aurora);
+  filter: blur(70px);
+  opacity: 0.32;
+  pointer-events: none;
+}
+:root.light .aurora-blob { opacity: 0.22; }
+
+/* Findings container — wraps the metric tile grid.
+   • Dark mode: subtle filled inset (surface-pill) + outer border, gives
+     the grid a contained "instrument readout" feel against the dark card.
+   • Light mode: transparent. Metrics live directly on the white card
+     surface, separated only by hairlines between cells (border-left /
+     border-top via --color-surface-card-border). The "washed out gray
+     rectangle" is gone; data pops. */
+.findings-container {
+  background: var(--color-surface-pill);
+  border: 1px solid var(--color-surface-card-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+:root.light .findings-container {
+  background: transparent;
+  border-color: transparent;
+}

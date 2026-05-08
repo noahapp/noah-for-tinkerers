@@ -107,9 +107,34 @@ export interface PlaybookProgress {
   description?: string;
 }
 
+/** Color of a Finding's value. Mirror of `Tone` in parseResponse.
+ *  Default is `neutral`. */
+export type AssistantTone = "good" | "warn" | "bad" | "neutral";
+
+/** A diagnostic fact rendered as a label/value tile in the Findings grid. */
+export interface AssistantFinding {
+  label: string;
+  value: string;
+  tone?: AssistantTone;
+  /** Sub-line below the value (qualifier or paired secondary value). */
+  sub?: string;
+}
+
+/** A single step in an ordered remediation plan. */
+export interface AssistantStep {
+  label: string;
+  status?: "pending" | "active" | "done";
+  detail?: string;
+}
+
 export interface AssistantUiSpa {
   kind: "spa";
   situation: string;
+  /** Optional structured diagnostic facts. */
+  findings?: AssistantFinding[];
+  /** Optional ordered plan; preferred over `plan` when present. */
+  steps?: AssistantStep[];
+  /** Legacy free-form markdown plan; fallback when `steps` absent. */
   plan?: string;
   action: AssistantCardAction;
   progress?: PlaybookProgress;
@@ -125,6 +150,9 @@ export interface AssistantUiUserQuestion {
 export interface AssistantUiInfo {
   kind: "done" | "info";
   summary: string;
+  /** Optional structured facts shown on completion / info cards.
+   *  Only populated for `kind === "done"`. */
+  findings?: AssistantFinding[];
   progress?: PlaybookProgress;
 }
 

@@ -168,7 +168,7 @@ export function SignInScreen({
             <button
               onClick={handleSend}
               disabled={submitting}
-              className="mt-3 w-full py-2.5 rounded-xl bg-accent-green text-white text-sm font-medium hover:bg-accent-green/80 transition-colors cursor-pointer disabled:opacity-50"
+              className="btn-launch mt-3 w-full py-2.5 rounded-xl text-sm font-medium cursor-pointer"
             >
               {submitting ? t("signIn.sending") : t("signIn.sendLink")}
             </button>
@@ -200,7 +200,7 @@ export function SignInScreen({
             <button
               onClick={handleSaveByok}
               disabled={byokSaving}
-              className="w-full py-2.5 rounded-xl bg-accent-green text-white text-sm font-medium hover:bg-accent-green/80 transition-colors cursor-pointer disabled:opacity-50"
+              className="btn-launch w-full py-2.5 rounded-xl text-sm font-medium cursor-pointer"
             >
               {byokSaving ? t("setup.saving") : t("advanced.byokSave")}
             </button>

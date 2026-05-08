@@ -25,6 +25,10 @@ interface SessionState {
   sidebarOpen: boolean;
   activeView: ActiveView;
   pastSessions: SessionRecord[];
+  /** Session IDs that received a reply while the user was viewing a
+   *  different thread. Sidebar surfaces these as a small unread dot.
+   *  Cleared the next time the user opens that session. */
+  unreadSessionIds: string[];
 
   setSession: (id: string) => void;
   setSessionMode: (mode: SessionMode) => void;
@@ -47,6 +51,12 @@ interface SessionState {
   setPastSessions: (sessions: SessionRecord[]) => void;
   /** Add a session to the top of pastSessions (optimistic insert). */
   prependSession: (session: SessionRecord) => void;
+  /** Mark a session as having unread activity (a response arrived while the
+   *  user was viewing a different thread). No-op if already unread or if
+   *  this is the currently-viewed session. */
+  markSessionUnread: (id: string) => void;
+  /** Clear the unread badge for a session (called on switch). */
+  markSessionRead: (id: string) => void;
 }
 
 // Helper: close all side panels.
@@ -70,16 +80,19 @@ export const useSessionStore = create<SessionState>((set) => ({
   sidebarOpen: true,
   activeView: "chat",
   pastSessions: [],
+  unreadSessionIds: [],
 
   setSession: (id) =>
-    set({
+    set((state) => ({
       sessionId: id,
       isActive: true,
       sessionMode: "default",
       autoConfirm: false,
       changes: [],
       pendingApproval: null,
-    }),
+      // Opening a session implicitly marks it read.
+      unreadSessionIds: state.unreadSessionIds.filter((s) => s !== id),
+    })),
 
   setSessionMode: (mode) => set({ sessionMode: mode }),
 
@@ -151,5 +164,18 @@ export const useSessionStore = create<SessionState>((set) => ({
   prependSession: (session) =>
     set((state) => ({
       pastSessions: [session, ...state.pastSessions.filter((s) => s.id !== session.id)],
+    })),
+
+  markSessionUnread: (id) =>
+    set((state) => {
+      // Don't badge the session the user is currently viewing.
+      if (state.sessionId === id) return {};
+      if (state.unreadSessionIds.includes(id)) return {};
+      return { unreadSessionIds: [...state.unreadSessionIds, id] };
+    }),
+
+  markSessionRead: (id) =>
+    set((state) => ({
+      unreadSessionIds: state.unreadSessionIds.filter((s) => s !== id),
     })),
 }));
