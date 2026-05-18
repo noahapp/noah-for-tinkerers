@@ -159,6 +159,16 @@
     "activeUntil": "free through {date}",
     "subscribeCta": "Subscribe to keep it"
   },
+  "trialEmailNudge": {
+    "headline": "Want a heads-up before your trial ends?",
+    "placeholder": "you@example.com",
+    "submit": "Remind me",
+    "sending": "Saving…",
+    "thanks": "Got it — we'll send a friendly nudge a day or two before.",
+    "invalid": "That doesn't look like an email.",
+    "tryAgain": "Couldn't save that. Try again?",
+    "dismissAria": "Dismiss the email nudge"
+  },
   "billing": {
     "sectionTitle": "Billing",
     "plan": "Plan",

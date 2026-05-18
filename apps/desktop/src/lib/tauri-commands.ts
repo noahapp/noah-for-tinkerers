@@ -501,6 +501,9 @@ export interface Entitlement {
   trial_ends_at: number | null;
   trial_extended_at?: number | null;
   tz_offset_minutes?: number | null;
+  /** Soft-captured email from the in-app trial nudge. Drives the
+      day-5 trial-ending recovery email. */
+  email?: string | null;
   /** "License key" issued at trial extension; cosmetic artifact for the user. */
   bonus_code?: string | null;
   period_start: number | null;
@@ -576,6 +579,17 @@ export async function consumerTrialExtend(
   email: string,
 ): Promise<TrialExtendResult> {
   return await invoke<TrialExtendResult>("consumer_trial_extend", { email });
+}
+
+/**
+ * Frictionless email capture from the in-app trial nudge. No
+ * confirmation needed — server stores it on the entitlement and we
+ * use it later for trial-end recovery emails. Throws on hard failure;
+ * the UI generally swallows errors silently (it's a soft ask, not a
+ * required step).
+ */
+export async function consumerTrialLinkEmail(email: string): Promise<void> {
+  await invoke<void>("consumer_trial_link_email", { email });
 }
 
 export async function consumerNotifyFixCompleted(): Promise<FixCompletedResult | null> {

@@ -166,6 +166,29 @@ pub async fn consumer_trial_extend(
     Ok(result)
 }
 
+/// Frictionless email capture from the in-app trial nudge. Sets
+/// the email on the server-side entitlement so trial-end recovery
+/// emails know where to land. Returns Ok(()) on success; the UI
+/// treats any error as a silent retry (we don't want to nag the
+/// user about a soft-ask failing).
+#[tauri::command]
+pub async fn consumer_trial_link_email(
+    state: State<'_, AppState>,
+    email: String,
+) -> Result<(), String> {
+    let trimmed = email.trim();
+    if trimmed.is_empty() {
+        return Err("email required".to_string());
+    }
+    let (session_tok, device_id) = current_auth(&state.app_dir);
+    let Some(auth) = auth_ref(&session_tok, &device_id) else {
+        return Err("no auth available".to_string());
+    };
+    client::trial_link_email(&auth, trimmed)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn consumer_notify_fix_completed(
     state: State<'_, AppState>,

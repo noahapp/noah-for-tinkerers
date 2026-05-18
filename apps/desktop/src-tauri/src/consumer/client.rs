@@ -152,6 +152,23 @@ pub async fn trial_extend(auth: &Auth<'_>, email: &str) -> Result<TrialExtendRes
     })
 }
 
+/// Frictionless email capture from the in-app trial nudge. Server
+/// stores the email on the entitlement (no verification) so the day-5
+/// trial-ending email knows where to land. Also fires CAPI Lead
+/// server-side with the email as the primary match key.
+pub async fn trial_link_email(auth: &Auth<'_>, email: &str) -> Result<()> {
+    let req = client()
+        .post(format!("{}/trial/link-email", base_url()))
+        .json(&serde_json::json!({ "email": email }));
+    let resp = apply_auth(req, auth).send().await?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(anyhow!("link-email failed: {} {}", status, body));
+    }
+    Ok(())
+}
+
 pub async fn notify_fix_completed(auth: &Auth<'_>) -> Result<FixCompletedResponse> {
     let req = client().post(format!("{}/events/fix-completed", base_url()));
     let resp = apply_auth(req, auth).send().await?;

@@ -19,6 +19,7 @@ import { useSessionStore } from "./stores/sessionStore";
 import { TilePickerScreen } from "./components/TilePickerScreen";
 import { SubscribeModal } from "./components/SubscribeModal";
 import { TrialBanner } from "./components/TrialBanner";
+import { TrialEmailNudge } from "./components/TrialEmailNudge";
 import { useDebugStore, type DebugEvent } from "./stores/debugStore";
 import { useConsumerStore } from "./stores/consumerStore";
 import { useTheme } from "./hooks/useTheme";
@@ -228,6 +229,7 @@ function MainApp() {
       <MainTitleBar />
       <UpdateBanner />
       <TrialBanner />
+      <TrialEmailNudge />
       <ProactiveSuggestionBanner />
 
       {/* Body: sidebar + main content */}
