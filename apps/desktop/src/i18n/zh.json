@@ -330,19 +330,7 @@
     "keepTrial": "暂时不用 — 继续我的免费试用",
     "subscribe": "继续使用 Noah",
     "opening": "正在打开结账…",
-    "fixContinuesNote": "不管怎样，Noah 都会在后台继续修复这个问题。",
-    "extend": {
-      "prompt": "需要更多时间？",
-      "subprompt": "留下你的邮箱 — 我们会发送一个加一天的奖励码。",
-      "emailPlaceholder": "you@example.com",
-      "submit": "再加一天",
-      "submitting": "添加中...",
-      "success": "已添加一天。奖励码正在路上。",
-      "codeLabel": "你的奖励码",
-      "errorAlreadyExtended": "此试用已经延长过了。",
-      "errorEmailTaken": "这个邮箱已经用过其他延长。",
-      "errorGeneric": "出了点问题 — 请重试。"
-    }
+    "fixContinuesNote": "不管怎样，Noah 都会在后台继续修复这个问题。"
   },
   "trialBanner": {
     "lead": "Noah 是你的",
