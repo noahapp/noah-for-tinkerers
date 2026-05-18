@@ -1,4 +1,6 @@
-import noahIcon from "../assets/noah-icon.png";
+// Canonical brand mark — auto-synced from /brand/noah-icon.svg via
+// /brand/sync.sh. Do not replace with a hand-edited PNG/SVG.
+import noahIcon from "../assets/noah-icon.svg";
 
 interface NoahIconProps {
   className?: string;
