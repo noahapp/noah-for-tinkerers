@@ -11,8 +11,16 @@ use crate::safety::journal;
 use super::{ScanProgress, Scanner};
 
 // ── macOS TCC-protected directories ────────────────────────────────
-// Accessing these triggers scary OS permission popups (e.g. "Noah wants
-// to access your Music").  We skip them entirely during disk scans.
+// Accessing these triggers OS permission popups (e.g. "Noah wants to
+// access your Music"). We skip them entirely during BACKGROUND scans —
+// any TCC prompt from a non-user-initiated code path is a trust break.
+//
+// NOTE: This list is mirrored in three places and they must stay in sync:
+//   • scanner/disk.rs              (this file — filters background walks)
+//   • platform/macos/disk_audit.rs (filters LLM disk_audit { target } calls)
+//   • platform/macos/diagnostics.rs::TCC_PROTECTED_PATH_FRAGMENTS
+//     (detects TCC denials in shell_run output and writes a hint)
+// If you add or remove an entry, update all three.
 
 /// Directory names (lowercase) under $HOME that are TCC-protected on macOS.
 #[cfg(target_os = "macos")]
@@ -23,6 +31,7 @@ const MACOS_PRIVATE_DIRS: &[&str] = &[
     "movies",
     "desktop",
     "documents",
+    "downloads", // TCC-gated since macOS 12 — separate Files & Folders entitlement
 ];
 
 /// Path components (lowercase) anywhere in a path that are TCC-protected.
@@ -35,6 +44,8 @@ const MACOS_PRIVATE_PATHS: &[&str] = &[
     "/library/safari",
     "/library/suggestions",
     "/library/homekit",
+    "/library/cloudstorage", // iCloud Drive, Google Drive, Dropbox, OneDrive bind mounts
+    "/.trash",
     "photos library.photoslibrary",
 ];
 
@@ -411,7 +422,10 @@ mod tests {
     #[test]
     fn tcc_blocks_home_private_dirs() {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/testuser".into());
-        for dir in &["Music", "Pictures", "Photos", "Movies", "Desktop", "Documents"] {
+        for dir in &[
+            "Music", "Pictures", "Photos", "Movies", "Desktop", "Documents",
+            "Downloads", // TCC-gated on macOS 12+
+        ] {
             let path = format!("{}/{}", home, dir);
             assert!(
                 is_macos_private(&path, &home),
@@ -438,6 +452,7 @@ mod tests {
             "/Library/Calendars",
             "/Library/Contacts",
             "/Library/Safari",
+            "/Library/CloudStorage", // bind mounts for iCloud/Google Drive/Dropbox/OneDrive
         ] {
             let path = format!("{}{}", home, component);
             assert!(
@@ -450,9 +465,42 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[test]
+    fn tcc_blocks_cloudstorage_subdirs() {
+        // The Google Drive sync folder lives at a per-account subdirectory.
+        // This was the exact path that bit us in v1.0.5 — make sure the
+        // filter catches it and any sibling cloud provider too.
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/testuser".into());
+        for cloud in &[
+            "Library/CloudStorage/GoogleDrive-xu.leaps@gmail.com",
+            "Library/CloudStorage/Dropbox",
+            "Library/CloudStorage/OneDrive-Personal",
+            "Library/CloudStorage/iCloud Drive",
+        ] {
+            let path = format!("{}/{}", home, cloud);
+            assert!(
+                is_macos_private(&path, &home),
+                "TCC guard must block ~/{}",
+                cloud
+            );
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn tcc_blocks_trash() {
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/testuser".into());
+        let path = format!("{}/.Trash", home);
+        assert!(
+            is_macos_private(&path, &home),
+            "TCC guard must block ~/.Trash",
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
     fn tcc_allows_safe_dirs() {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/testuser".into());
-        for dir in &["Downloads", "Library/Caches", "Library/Application Support", ".config"] {
+        for dir in &["Library/Caches", "Library/Application Support", ".config"] {
             let path = format!("{}/{}", home, dir);
             assert!(
                 !is_macos_private(&path, &home),

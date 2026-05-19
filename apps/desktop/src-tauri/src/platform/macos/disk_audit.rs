@@ -173,9 +173,14 @@ fn format_size(kb: u64) -> String {
 }
 
 /// macOS TCC-protected directory names under $HOME (lowercase).
-/// Accessing these triggers OS permission popups.
+/// Accessing these triggers OS permission popups, so the disk_audit
+/// tool refuses to scan them even when explicitly asked.
+///
+/// NOTE: mirrored in scanner/disk.rs and diagnostics.rs::
+/// TCC_PROTECTED_PATH_FRAGMENTS. Keep all three in sync.
 const MACOS_PRIVATE_DIRS: &[&str] = &[
     "music", "pictures", "photos", "movies", "desktop", "documents",
+    "downloads", // TCC-gated since macOS 12 — separate Files & Folders entitlement
 ];
 
 /// Path components (lowercase) that are TCC-protected on macOS.
@@ -187,6 +192,8 @@ const MACOS_PRIVATE_PATHS: &[&str] = &[
     "/library/safari",
     "/library/suggestions",
     "/library/homekit",
+    "/library/cloudstorage", // iCloud Drive, Google Drive, Dropbox, OneDrive bind mounts
+    "/.trash",
     "photos library.photoslibrary",
 ];
 
