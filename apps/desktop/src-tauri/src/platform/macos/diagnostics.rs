@@ -375,6 +375,74 @@ pub fn is_dangerous_command(command: &str) -> bool {
     false
 }
 
+/// macOS TCC-protected path fragments. If a shell command hits "Operation
+/// not permitted" while touching one of these, the cause is almost
+/// certainly TCC — not a generic filesystem permission — and the user
+/// needs to grant access in System Settings.
+///
+/// Lowercase substrings; matched against the lowercased command string.
+const TCC_PROTECTED_PATH_FRAGMENTS: &[&str] = &[
+    "/library/cloudstorage",   // iCloud Drive, Google Drive, Dropbox, OneDrive bind mounts
+    "/library/mail",
+    "/library/messages",
+    "/library/calendars",
+    "/library/contacts",
+    "/library/safari",
+    "/library/homekit",
+    "/library/suggestions",
+    "/desktop",
+    "/documents",
+    "/downloads",
+    "/movies",
+    "/music",
+    "/pictures",
+    "photoslibrary",
+    "/.trash",
+];
+
+/// Detect a macOS TCC permission denial in a shell command's output.
+///
+/// Returns `Some(hint)` with structured guidance if the output looks like
+/// a TCC denial (kernel-level "Operation not permitted" against a known
+/// TCC-protected path). The hint is appended to the result the LLM sees,
+/// so the agent can guide the user through the *full* fix — including
+/// the often-missed step of fully quitting Noah after granting permission.
+///
+/// Returns `None` for non-TCC errors so we don't pollute legitimate
+/// "permission denied" outputs (e.g. an actual chmod issue).
+fn detect_tcc_denial(output: &str, command: &str) -> Option<String> {
+    // The kernel-level TCC denial returns EPERM, which surfaces as
+    // "Operation not permitted" in ls/stat/find. "Permission denied"
+    // (EACCES) is a different errno — used by chmod-style restrictions —
+    // so we deliberately *don't* match it to avoid false positives.
+    if !output.contains("Operation not permitted") {
+        return None;
+    }
+    let lower_cmd = command.to_lowercase();
+    let touched_protected_path = TCC_PROTECTED_PATH_FRAGMENTS
+        .iter()
+        .any(|frag| lower_cmd.contains(frag));
+    if !touched_protected_path {
+        return None;
+    }
+    Some(
+        "[macOS TCC denial detected. This is a privacy permission, not a \
+         filesystem permission. To fix:\n\
+         1. The user opens System Settings → Privacy & Security → Files \
+         and Folders → find Noah → enable the relevant entry (e.g. Google \
+         Drive, Desktop, Documents). They may instead choose Full Disk Access.\n\
+         2. CRITICAL: the user must fully quit Noah (Cmd+Q, not just close \
+         the window) and reopen it. TCC verdicts are cached for the lifetime \
+         of the running process — without a restart, this exact command will \
+         keep failing even though System Settings shows the grant.\n\
+         3. After Noah reopens, ask them to come back to this chat and tell \
+         you to retry.\n\
+         When telling the user this, lead with the restart requirement — \
+         that's the step they're most likely to skip.]"
+            .to_string(),
+    )
+}
+
 #[async_trait]
 impl Tool for ShellRun {
     fn name(&self) -> &str {
@@ -487,6 +555,20 @@ impl Tool for ShellRun {
                     } else {
                         result.push_str(&format!("\n\n[exit code: {}]", exit_code));
                     }
+
+                    // Detect macOS TCC denial — feed the agent a structured
+                    // hint so it can guide the user instead of reporting a
+                    // bare "Operation not permitted". TCC verdicts are
+                    // cached for the lifetime of the running Noah process,
+                    // so a permission grant requires a full Noah restart
+                    // to take effect — this trips up users who grant in
+                    // System Settings, retry from the same session, and
+                    // see the same denial.
+                    if let Some(hint) = detect_tcc_denial(&result, &effective_command) {
+                        result.push_str("\n\n");
+                        result.push_str(&hint);
+                    }
+
                     result
                 }
             }
@@ -583,6 +665,49 @@ mod tests {
     fn dangerous_permission_changes_blocked() {
         assert!(is_dangerous_command("chmod -R 777 /"));
         assert!(is_dangerous_command("chown -R root:root /Users"));
+    }
+
+    #[test]
+    fn tcc_denial_detected_for_cloudstorage() {
+        let stderr = "ls: /Users/x/Library/CloudStorage/GoogleDrive-x@gmail.com: Operation not permitted\n\n[exit code: 1]";
+        let hint = detect_tcc_denial(stderr, "ls ~/Library/CloudStorage/GoogleDrive-x@gmail.com");
+        assert!(hint.is_some());
+        let h = hint.unwrap();
+        assert!(h.contains("System Settings"));
+        assert!(h.contains("fully quit Noah"));
+        assert!(h.contains("Cmd+Q"));
+    }
+
+    #[test]
+    fn tcc_denial_detected_for_protected_dirs() {
+        for (cmd, path) in [
+            ("ls ~/Documents/private", "/documents"),
+            ("find ~/Desktop -name '*.txt'", "/desktop"),
+            ("stat ~/Pictures/Photos\\ Library.photoslibrary", "photoslibrary"),
+            ("cat ~/Library/Mail/V10/MailData/Envelope\\ Index", "/library/mail"),
+        ] {
+            let output = format!("err: {}: Operation not permitted", path);
+            assert!(
+                detect_tcc_denial(&output, cmd).is_some(),
+                "expected TCC hint for command {cmd:?}",
+            );
+        }
+    }
+
+    #[test]
+    fn tcc_hint_skipped_for_unrelated_permission_denied() {
+        // EACCES against an unprotected path is a regular filesystem error,
+        // not TCC. The hint would be misleading there.
+        let stderr = "cat: /root/secret.txt: Permission denied";
+        assert!(detect_tcc_denial(stderr, "cat /root/secret.txt").is_none());
+    }
+
+    #[test]
+    fn tcc_hint_skipped_for_eperm_on_unprotected_path() {
+        // EPERM on a non-TCC path → could be many causes; don't inject TCC
+        // guidance and confuse the user.
+        let stderr = "rm: /etc/hosts: Operation not permitted";
+        assert!(detect_tcc_denial(stderr, "rm /etc/hosts").is_none());
     }
 
     #[test]
