@@ -351,9 +351,13 @@ describe("TilePickerScreen → clarify → seed", () => {
     expect(
       screen.getAllByText("My Mac feels slow").length,
     ).toBeGreaterThan(0);
-    // Continue button is disabled until text is entered
-    const cont = screen.getByText("Continue") as HTMLButtonElement;
-    expect(cont.hasAttribute("disabled")).toBe(true);
+    // No detail typed → button reads "Diagnose now" and is enabled
+    // (clicking it seeds the bare category, no clarifier required).
+    // After typing, the same button switches to "Continue".
+    expect(screen.getByText("Diagnose now")).toBeTruthy();
+    const textarea = screen.getByRole("textbox");
+    await user.type(textarea, "a");
+    expect(screen.getByText("Continue")).toBeTruthy();
   });
 
   it("stashes a composed seed to localStorage and calls onComplete", async () => {

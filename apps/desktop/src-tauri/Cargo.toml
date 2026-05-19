@@ -1,6 +1,6 @@
 [package]
 name = "noah-desktop"
-version = "1.0.5"
+version = "1.0.6"
 description = "Noah - AI-Powered IT Support"
 authors = ["Noah"]
 edition = "2021"
@@ -39,3 +39,4 @@ sha2 = "0.10"
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
 tempfile = "3"
+wiremock = "0.6"

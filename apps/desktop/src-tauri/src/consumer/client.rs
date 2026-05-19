@@ -58,9 +58,34 @@ fn apply_auth(
     }
 }
 
+/// Custom User-Agent so noah-consumer can recognise the OS family of
+/// every desktop request (Mac / Windows / Linux). Default reqwest UA
+/// is "reqwest/<version>" which the server's uaPlatformFamily()
+/// classifies as "unknown" — and the unknown family blocks the
+/// landing-page→desktop attribution match. Embedding a recognisable
+/// OS substring lets the relaxed family match bridge browser-side
+/// _fbc/_fbp into the desktop's first-issue Lead event.
+fn user_agent() -> String {
+    let version = env!("CARGO_PKG_VERSION");
+    let os_marker = match std::env::consts::OS {
+        "macos" => "Macintosh; Intel Mac OS X",
+        "windows" => "Windows NT 10.0",
+        "linux" => "X11; Linux x86_64",
+        other => other,
+    };
+    format!(
+        "Noah-Desktop/{} ({}) {} {}",
+        version,
+        os_marker,
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+    )
+}
+
 fn client() -> reqwest::Client {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
+        .user_agent(user_agent())
         .build()
         .expect("reqwest client build")
 }

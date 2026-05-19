@@ -1,6 +1,6 @@
 pub mod agent;
 mod commands;
-mod consumer;
+pub mod consumer;
 mod dashboard_link;
 pub mod debug_runner;
 mod knowledge;
