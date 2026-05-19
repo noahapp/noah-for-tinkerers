@@ -12,13 +12,11 @@ import { KnowledgeView } from "./components/KnowledgePanel";
 import { DebugPanel } from "./components/DebugPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { HealthDashboard } from "./components/HealthDashboard";
-import { UpdateBanner } from "./components/UpdateBanner";
 import { ProactiveSuggestionBanner } from "./components/ProactiveSuggestionBanner";
 import { SessionSummary } from "./components/SessionSummary";
 import { useSessionStore } from "./stores/sessionStore";
 import { TilePickerScreen } from "./components/TilePickerScreen";
 import { SubscribeModal } from "./components/SubscribeModal";
-import { TrialBanner } from "./components/TrialBanner";
 import { TrialEmailNudge } from "./components/TrialEmailNudge";
 import { useDebugStore, type DebugEvent } from "./stores/debugStore";
 import { useConsumerStore } from "./stores/consumerStore";
@@ -225,10 +223,11 @@ function MainApp() {
 
   return (
     <div className="flex flex-col h-screen bg-bg-primary text-text-primary">
-      {/* Title bar — spans full width, sits in macOS overlay region */}
+      {/* Title bar — spans full width, sits in macOS overlay region.
+          Trial state moved into the Sidebar footer; update prompt moved
+          into Settings (with a dot on the sidebar cog when available).
+          The email nudge stays here — its job is funnel data capture. */}
       <MainTitleBar />
-      <UpdateBanner />
-      <TrialBanner />
       <TrialEmailNudge />
       <ProactiveSuggestionBanner />
 

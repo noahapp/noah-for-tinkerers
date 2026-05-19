@@ -70,7 +70,8 @@
     "cancel": "Cancel",
     "today": "Today, {time}",
     "yesterday": "Yesterday, {time}",
-    "settings": "Settings"
+    "settings": "Settings",
+    "settingsUpdateAvailable": "Settings · Update available"
   },
   "setup": {
     "welcomeTitle": "Welcome to Noah",

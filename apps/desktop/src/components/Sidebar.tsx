@@ -8,6 +8,8 @@ import * as commands from "../lib/tauri-commands";
 import type { SessionRecord } from "../lib/tauri-commands";
 import { isMac } from "../lib/platform";
 import { SidebarToggleIcon, SettingsGearIcon } from "./MainTitleBar";
+import { TrialBanner } from "./TrialBanner";
+import { useUpdateAvailable } from "../hooks/useUpdateAvailable";
 
 // Map app locale to BCP 47 tag for Intl date/time formatting.
 const localeBcp47: Record<string, string> = { zh: "zh-CN", en: "en-US" };
@@ -381,6 +383,10 @@ export function Sidebar({ session }: SidebarProps) {
 
   const toggleSidebar = useSessionStore((s) => s.toggleSidebar);
   const settingsActive = activeView === "settings";
+  // Dot on the settings cog when a newer build is available. The actual
+  // install lives in SettingsPanel.AboutCard — this is just the
+  // discoverability cue.
+  const updateAvailable = useUpdateAvailable();
 
   if (!sidebarOpen) {
     return (
@@ -401,15 +407,22 @@ export function Sidebar({ session }: SidebarProps) {
         <div className="mt-auto px-2 pb-2 pt-1 border-t border-border-primary">
           <button
             onClick={() => setActiveView(settingsActive ? "chat" : "settings")}
-            title={t("sidebar.settings")}
-            aria-label={t("sidebar.settings")}
-            className={`flex items-center justify-center w-full h-9 rounded-lg transition-colors cursor-pointer ${
+            title={updateAvailable ? t("sidebar.settingsUpdateAvailable") : t("sidebar.settings")}
+            aria-label={updateAvailable ? t("sidebar.settingsUpdateAvailable") : t("sidebar.settings")}
+            className={`relative flex items-center justify-center w-full h-9 rounded-lg transition-colors cursor-pointer ${
               settingsActive
                 ? "bg-accent-blue/15 text-accent-blue"
                 : "text-text-secondary hover:bg-bg-tertiary/50 hover:text-text-primary"
             }`}
           >
             <SettingsGearIcon />
+            {updateAvailable && (
+              <span
+                aria-hidden
+                className="absolute top-1 right-1 w-2 h-2 rounded-full"
+                style={{ backgroundColor: "var(--color-accent-indigo)" }}
+              />
+            )}
           </button>
         </div>
       </div>
@@ -502,20 +515,35 @@ export function Sidebar({ session }: SidebarProps) {
         )}
       </div>
 
-      <div className="px-2 pb-2 pt-1 border-t border-border-primary mt-auto">
-        <button
-          onClick={() => setActiveView(settingsActive ? "chat" : "settings")}
-          title={t("sidebar.settings")}
-          aria-label={t("sidebar.settings")}
-          className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
-            settingsActive
-              ? "bg-accent-blue/15 text-accent-blue"
-              : "text-text-secondary hover:bg-bg-tertiary/50 hover:text-text-primary"
-          }`}
-        >
-          <SettingsGearIcon />
-          {t("sidebar.settings")}
-        </button>
+      {/* Bottom-pinned: trial state (if trialing) sits above the settings
+          row. Replaces the old top-of-app TrialBanner stack — the chat
+          canvas stays unobstructed. */}
+      <div className="mt-auto">
+        <div className="px-2 pt-2 pb-1">
+          <TrialBanner />
+        </div>
+        <div className="px-2 pb-2 pt-1 border-t border-border-primary">
+          <button
+            onClick={() => setActiveView(settingsActive ? "chat" : "settings")}
+            title={updateAvailable ? t("sidebar.settingsUpdateAvailable") : t("sidebar.settings")}
+            aria-label={updateAvailable ? t("sidebar.settingsUpdateAvailable") : t("sidebar.settings")}
+            className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
+              settingsActive
+                ? "bg-accent-blue/15 text-accent-blue"
+                : "text-text-secondary hover:bg-bg-tertiary/50 hover:text-text-primary"
+            }`}
+          >
+            <SettingsGearIcon />
+            <span className="flex-1 text-left">{t("sidebar.settings")}</span>
+            {updateAvailable && (
+              <span
+                aria-hidden
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: "var(--color-accent-indigo)" }}
+              />
+            )}
+          </button>
+        </div>
       </div>
 
       {contextMenu && (
