@@ -94,8 +94,10 @@ describe("i18n platform token substitution", () => {
       "Hi, I'm Noah. What's going on with your PC?",
     );
     expect(i18n.t("onboarding.tile.slow.title")).toBe("My PC feels slow");
-    expect(i18n.t("onboarding.tile.update.desc")).toBe(
-      "A new bug after Windows or an app updated",
+    // storage.hint is the one tile that uses {osName} — verifies the
+    // OS-named substitution still works on Windows.
+    expect(i18n.t("onboarding.tile.storage.hint")).toBe(
+      "e.g. Windows says my disk is almost full and I don't know what to delete",
     );
   });
 });
