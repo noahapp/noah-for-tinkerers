@@ -34,12 +34,13 @@ Explicit: "clean up my storage", "free disk space", "find space hogs", "check st
 
 ## Recipes
 
-**Cache workhorses** (skip a line if the tool/bundle isn't present):
+**Cache workhorses** (run as one block; do NOT `set -e` — each line may fail benignly when a tool isn't installed):
 ```bash
 command -v npm && npm cache clean --force && rm -rf ~/.npm/_cacache ~/.npm/_npx ~/.npm/_logs
 command -v pnpm && pnpm store prune
 command -v yarn && yarn cache clean && rm -rf ~/Library/Caches/Yarn
-command -v uv && uv cache prune || (command -v pip3 && pip3 cache purge)
+command -v uv && uv cache prune
+command -v pip3 && pip3 cache purge
 command -v cargo && rm -rf ~/.cargo/registry/cache ~/.cargo/registry/src ~/.cargo/git/checkouts
 command -v go && go clean -modcache && go clean -cache
 command -v brew && brew cleanup --prune=30 && brew autoremove
@@ -52,8 +53,9 @@ find ~/.Trash -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 find ~/Library/Logs -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} +
 pgrep -x Mail || find ~/Library/Containers/com.apple.mail/Data/Library/Mail\ Downloads -type f -mtime +30 -delete
 pgrep -x Xcode || rm -rf ~/Library/Developer/Xcode/DerivedData/* ~/Library/Developer/Xcode/{iOS,watchOS,tvOS}\ DeviceSupport/* ~/Library/Caches/com.apple.dt.Xcode/*
-find /Applications -maxdepth 1 -name 'Install macOS*.app' -mtime +14 -not -name "*$(sw_vers -productVersion | cut -d. -f1)*" -exec rm -rf {} +
+find /Applications -maxdepth 1 -name 'Install macOS*.app' -mtime +14 -exec rm -rf {} +
 ```
+The macOS installer line is in the ask-once group; user confirms before this runs.
 
 **iOS Simulator full reset** (lock-prone; do in order, do not loop):
 ```bash
@@ -64,16 +66,10 @@ rm -rf ~/Library/Developer/CoreSimulator/Caches/*
 ```
 On `currently in use` / `Failed to eject`: run the holder diagnostic, surface the process name, STOP. Don't `launchctl bootout`, don't `killall`.
 
-**Holder diagnostic** (use when a row returns ~0 freed):
+**Holder diagnostic** (use when a row returns ~0 freed; replace the path with the actual cleanup target):
 ```bash
-lsof +D '<path>' 2>/dev/null | awk 'NR>1 {print $1}' | sort -u | head
+lsof +D /absolute/path/to/check 2>/dev/null | awk 'NR>1 {print $1}' | sort -u | head
 ```
-
-**Internal vs DMG/external** (run before any cleanup):
-```bash
-diskutil info -plist / | plutil -p - | grep -E 'Ejectable|RemovableMedia|VolumeName'
-```
-Refuse to clean ejectable/external volumes unless the user named them.
 
 **Cloud provider detection** (when user mentions cloud):
 ```bash
@@ -105,7 +101,7 @@ Refuse even with user blessing:
 - "Can't install macOS update" → needs 15–30 GB free; run pipeline, retry update.
 - "Disk was fine yesterday" → runaway log or crash loop. Audit `~/Library/Logs` and `~/Library/Logs/DiagnosticReports`.
 - "Already emptied Trash" → big consumers are dev artifacts (Xcode, simulators, Docker) and iOS backups.
-- ~85% of low-disk cases resolve via the standard pipeline; the remaining ones are user media (Photos, iOS backups) or genuinely-needed working files.
+- After the standard pipeline, anything still pinning the drive is usually user media (Photos, iOS backups) or genuinely-needed working files — surface them, don't push deletion.
 
 ## Tools referenced
 - `mac_disk_usage` — top-line stats.
