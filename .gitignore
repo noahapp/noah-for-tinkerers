@@ -50,3 +50,9 @@ apps/desktop/src-tauri/tests/playbook-results/
 
 # Firebase site (deployed separately)
 site/
+
+# Stray tool artifacts / generated assets (kept on disk, not tracked)
+.antigravitycli/
+brand/ads/
+Noah.html
+Noah_files/
