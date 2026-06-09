@@ -89,16 +89,61 @@ deletion toward a goal, the safety floor was a single click.
    list is the satisfying approximation, and every entry carries its rationale so
    it does not rot.
 
+## Fail-closed: the harness permits, it doesn't chase bypasses
+
+The first cut was **fail-open**: it tried to *parse* arbitrary shell and catch
+known-bad forms, so anything it couldn't parse fell through to allowed. That is a
+losing game — firmlinks, `find -delete`, `xargs rm`, relative paths, `$(...)`,
+`eval`, variables — an unbounded list of spellings for the same delete.
+
+The harness has full control, so it **inverts the burden**: a command that
+deletes must be in a small, fully-analysable **canonical form**, or it does not
+run. We don't have to understand `find … | xargs rm` — we refuse it and tell the
+model to re-express the delete as something the harness *can* read. The infinite
+bypass surface collapses into one finite allowlist.
+
+**Canonical deletion form** — the rule is *the target root must be statically
+visible*. Everything else → `RejectNonCanonical`:
+- `rm` / `unlink` on literal paths, **or** a non-piped
+  `find <root> … -delete` / `-exec rm` whose root is a literal path. A `find`
+  root is checkable and its `-name`/`-mtime` predicates only *narrow* what's
+  removed within that root — strictly safer — so age/size-filtered cleanup is
+  preserved.
+- No indirection that hides the target: **no pipe `|`** (a `grep`/`sed` between
+  `find` and `xargs rm` could diverge the deleted set), no `xargs`, no command
+  substitution `$(…)` / backticks, no `eval`, no pipe-to-shell, no variables
+  other than `$HOME`.
+- Every path (rm/unlink operand or find root) is **absolute** (`/…`) or
+  `~`/`$HOME`-rooted — never relative (closes `cd ~ && rm -rf Library/…`), never
+  a bare `find` defaulting to the cwd. Globs are fine (the base is concrete).
+- Flags are short and known (`-rRfidvPW`); long flags like
+  `--no-preserve-root` are rejected. `srm`/`shred`/`rmdir` → use `rm`.
+
+The model can still delete anything — it just has to express it so the harness
+can *see the root*. That composes perfectly with inspect-before-delete: the
+visible root is exactly what the inspect-set is checked against.
+
+### Threat model (so the design is proportionate)
+
+The danger is **our own over-eager model** reaching for powerful sweeping
+constructs — exactly what the incident showed — not an adversary laundering `rm`
+through base64. Fail-closed canonical form fully addresses the former and raises
+the bar steeply on the latter (`eval` and pipe-to-shell are themselves refused).
+We do **not** claim to stop a maliciously-controlled model that hides a deletion
+behind zero recognisable tokens; that is out of scope and stated, not papered over.
+
 ## The redline taxonomy (the spine)
 
-A friction gradient, not a set of absolutes:
+A friction gradient, not a set of absolutes. The canonical gate runs first; the
+tiers below apply to the now-fully-readable delete:
 
 | Tier | What | Action |
 |------|------|--------|
+| **non-canonical** | a delete whose target root isn't statically visible (pipe, `xargs`, `$(…)`, variable, `eval`, relative path, rootless `find`) | **reject with a tip** to re-express so the root is a literal `rm`/`unlink` operand or `find` root |
 | **auto** | regenerable / reversible (caches, logs, old pkg versions) | run, log it |
 | **confirm** | ordinary deletes outside protected trees | approve, with plain-language disclosure |
 | **inspect-then-delete** | concrete delete *inside* a protected tree, not yet inspected | **reject with a tip**; clears once that path (or an ancestor within the tree) has been inspected this session |
-| **reject-wildcard** | wildcard sweep into a protected tree | **reject with a tip**; never auto-clears — the AI must enumerate specific subpaths |
+| **reject-sweep** | wildcard, tree-root, or ancestor delete over a protected tree | **reject with a tip**; never auto-clears — the AI must enumerate specific inspected subpaths |
 | **hard-deny** | the handful of actions that end the machine or destroy identity | **refuse even with inspection + reaffirmation** |
 
 ### Protected trees (approximation; irreplaceable user data / app state)
@@ -207,17 +252,20 @@ local), never straight-deleted; irreplaceable-and-critical data is left alone �
 the few GB are not worth it.** This lives in the playbook because it is
 judgment; the trees above are the floor the playbook cannot fall through.
 
-## Known limits of the approximation (stated, not hidden)
+## Known limits (stated, not hidden)
 
-- A **relative path after an un-tracked `cd`** (`cd ~ && rm -rf Library/…`) is not
-  resolved back to home. Mitigated in practice: Noah's shell runs from the app's
-  working directory, not the home dir, so a bare `Library/` rarely *is* `~/Library`.
-- Only `$HOME` is expanded; arbitrary `$VAR` interpolation is not modelled.
-- macOS APFS is case-insensitive by default; we lowercase to match. A
-  case-*sensitive* volume could in principle hide a path — rare, accepted.
+Fail-closed canonical form closes the spelling bypasses (relative paths,
+variables, `$(…)`, `find`/`xargs`, firmlinks) by *refusing* them rather than
+resolving them. What remains:
+
+- A deletion with **zero recognisable deletion token** (e.g. a fully
+  base64/`eval`-laundered `rm` that also evades the `eval`/pipe-to-shell refusal)
+  is out of scope — see the threat model. Our own model does not produce these.
 - `tmutil deletelocalsnapshots` (removing Time Machine local snapshots) is left
   ungated: it is an Apple-sanctioned, auto-regenerating space step. Worth
   revisiting if we want to protect the snapshot safety net during big deletes.
+- macOS APFS is case-insensitive by default; we lowercase to match. A
+  case-*sensitive* volume could in principle hide a path — rare, accepted.
 
 These are the seams. They are documented because an approximation you can see the
 edges of is more trustworthy than one that pretends to be total.

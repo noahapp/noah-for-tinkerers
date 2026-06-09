@@ -101,6 +101,11 @@ const FIRMLINK_PREFIXES: &[&str] = &["/system/volumes/data"];
 pub enum GateDecision {
     /// Not a protected-tree delete (or it's regenerable). Proceed to normal flow.
     Allow,
+    /// The command deletes, but not in a form the harness can fully analyse
+    /// (a pipe, `find`/`xargs`, command substitution, a variable, `eval`, or a
+    /// relative path). **Fail-closed**: re-express as a plain `rm`/`unlink` on
+    /// an absolute or `~`-rooted path. The harness only runs deletions it can read.
+    RejectNonCanonical { tip: String },
     /// Concrete delete of a specific path inside a protected tree that hasn't
     /// been inspected. Carries a tip instructing the model to inspect first.
     RejectNeedsInspection { path: String, tip: String },
@@ -119,6 +124,7 @@ impl GateDecision {
     pub fn classification(&self) -> &'static str {
         match self {
             GateDecision::Allow => "allow",
+            GateDecision::RejectNonCanonical { .. } => "non_canonical",
             GateDecision::RejectNeedsInspection { .. } => "inspect_then_delete",
             GateDecision::RejectSweep { .. } => "reject_sweep",
             GateDecision::HardDeny { .. } => "hard_deny",
@@ -128,6 +134,7 @@ impl GateDecision {
     pub fn message(&self) -> String {
         match self {
             GateDecision::Allow => String::new(),
+            GateDecision::RejectNonCanonical { tip } => tip.clone(),
             GateDecision::RejectNeedsInspection { tip, .. } => tip.clone(),
             GateDecision::RejectSweep { tip, .. } => tip.clone(),
             GateDecision::HardDeny { reason } => reason.clone(),
@@ -430,6 +437,136 @@ pub fn hard_denied(cmd: &str, home: &str) -> Option<String> {
     None
 }
 
+// ── Canonical-form allowlist (fail-closed) ───────────────────────────────
+
+/// True if the command performs (or could launder) a deletion at all. When this
+/// is false we don't care about the command. When true, it must be canonical.
+fn mentions_deletion(cmd: &str) -> bool {
+    let xargs_rm = has_xargs_rm(cmd);
+    for part in split_commands(cmd) {
+        let (leader, args) = leader_and_args(&part);
+        match leader.as_str() {
+            "rm" | "unlink" | "srm" | "shred" | "rmdir" => return true,
+            "find" if find_args_destructive(&args) || xargs_rm => return true,
+            "xargs" if xargs_rm => return true,
+            "eval" => return true,
+            // pipe-to-shell laundering (`… | sh`)
+            "sh" | "bash" | "zsh" if has_pipe(cmd) => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
+/// A `|` pipe that is not part of `||`.
+fn has_pipe(cmd: &str) -> bool {
+    cmd.replace("||", "\u{0}\u{0}").contains('|')
+}
+
+/// Is this token an acceptable `rm` flag? Short flags only, from a safe set;
+/// long flags (`--no-preserve-root`) and unknown flags are rejected.
+fn valid_rm_flag(a: &str) -> bool {
+    a.len() > 1
+        && a.starts_with('-')
+        && !a.starts_with("--")
+        && a[1..].chars().all(|c| "rRfidvPW".contains(c))
+}
+
+/// An operand the harness can resolve to a concrete location: absolute, or
+/// `~`/`$HOME`-rooted. Globs are allowed (the base is still concrete). Relative
+/// paths, other variables, and command substitution are not.
+fn canonical_operand(op: &str) -> bool {
+    if op.contains("$(") || op.contains('`') {
+        return false;
+    }
+    if op.starts_with('/') || op == "~" || op.starts_with("~/") {
+        return true;
+    }
+    if op == "$HOME" || op.starts_with("$HOME/") {
+        return true;
+    }
+    if op.contains('$') {
+        return false; // some other variable
+    }
+    false // relative
+}
+
+fn tip_noncanonical(what: &str) -> String {
+    format!(
+        "Held back: this delete uses {} — a form Noah can't fully read before \
+         running, so it won't run it. Re-express it so the target is statically \
+         visible: a plain `rm -rf <path>` / `unlink <path>`, or a `find <path> … \
+         -delete` / `-exec rm` whose root is an absolute or `~`-rooted path — no \
+         pipes, no `xargs`, no `$(...)`, no variables, no relative paths. Inspect \
+         first if it's inside a protected folder.",
+        what
+    )
+}
+
+fn operand_why(op: &str) -> String {
+    let why = if op.contains("$(") || op.contains('`') {
+        "command substitution"
+    } else if op.contains('$') {
+        "a shell variable"
+    } else {
+        "a relative path"
+    };
+    format!("{} (`{}`)", why, op)
+}
+
+/// Why (if at all) a deletion command is not in canonical form. Permits
+/// `rm`/`unlink` on literal paths, and a **non-piped** `find <literal-root> …
+/// -delete/-exec rm` (its root is statically checkable; predicates only narrow
+/// what's removed). Rejects pipes, `xargs`, substitution, variables, relative
+/// paths, `eval`, and the secure/dir deleters.
+fn canonical_violation(cmd: &str) -> Option<String> {
+    if has_pipe(cmd) {
+        return Some(tip_noncanonical("a pipe"));
+    }
+    if cmd.contains("$(") || cmd.contains('`') {
+        return Some(tip_noncanonical("command substitution `$(...)`"));
+    }
+    for part in split_commands(cmd) {
+        let (leader, args) = leader_and_args(&part);
+        match leader.as_str() {
+            "rm" | "unlink" => {
+                for a in &args {
+                    if a.starts_with('-') && (leader == "unlink" || !valid_rm_flag(a)) {
+                        return Some(tip_noncanonical(&format!("the flag `{}`", a)));
+                    }
+                }
+                for op in path_operands(&args) {
+                    if !canonical_operand(&op) {
+                        return Some(tip_noncanonical(&operand_why(&op)));
+                    }
+                }
+            }
+            "find" if find_args_destructive(&args) => {
+                let roots = find_roots(&args);
+                if roots.is_empty() {
+                    return Some(tip_noncanonical(
+                        "a `find` with no explicit path (it would default to the current directory)",
+                    ));
+                }
+                for r in &roots {
+                    if !canonical_operand(r) {
+                        return Some(tip_noncanonical(&format!(
+                            "a `find` root that isn't an absolute/`~`-rooted path ({})",
+                            operand_why(r)
+                        )));
+                    }
+                }
+            }
+            // Secure/dir deleters and indirection: funnel to the plain forms.
+            "srm" | "shred" | "rmdir" | "xargs" | "eval" => {
+                return Some(tip_noncanonical(&format!("`{}`", leader)));
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 // ── The gate ─────────────────────────────────────────────────────────────
 
 /// Classify a command against the inspected-set and return the gate decision.
@@ -438,6 +575,14 @@ pub fn hard_denied(cmd: &str, home: &str) -> Option<String> {
 pub fn gate_decision(cmd: &str, home: &str, inspected: &HashSet<String>) -> GateDecision {
     if let Some(reason) = hard_denied(cmd, home) {
         return GateDecision::HardDeny { reason };
+    }
+
+    // Fail-closed allowlist: a command that deletes must do so in a form the
+    // harness can fully analyse, or it doesn't run.
+    if mentions_deletion(cmd) {
+        if let Some(tip) = canonical_violation(cmd) {
+            return GateDecision::RejectNonCanonical { tip };
+        }
     }
 
     for op in delete_targets_raw(cmd) {
@@ -649,10 +794,12 @@ mod tests {
         ));
     }
 
-    // ── find / xargs / unlink vectors ────────────────────────────────────
+    // ── Visible-root find: permitted, then gated on the root ─────────────
 
     #[test]
-    fn find_delete_in_protected_tree_rejected() {
+    fn find_delete_on_tree_root_is_sweep() {
+        // Non-piped find with a checkable root → flows to the tree gate; root
+        // IS the protected tree → sweep.
         let d = gate_decision(
             "find ~/Library/Application\\ Support -maxdepth 1 -type d -delete",
             HOME,
@@ -661,45 +808,127 @@ mod tests {
         assert!(matches!(d, GateDecision::RejectSweep { .. }), "{:?}", d);
     }
     #[test]
-    fn find_exec_rm_in_protected_tree_rejected() {
+    fn find_exec_rm_on_specific_subdir_is_inspect_gated() {
         let d = gate_decision(
             "find ~/Library/Containers/com.apple.MobileSMS -exec rm -rf {} +",
             HOME,
             &empty(),
         );
-        // Concrete subdir of Containers → inspect-gate.
         assert!(matches!(d, GateDecision::RejectNeedsInspection { .. }), "{:?}", d);
     }
     #[test]
-    fn find_pipe_xargs_rm_rejected() {
+    fn find_delete_in_unprotected_age_filtered_allowed() {
+        // The bundled-recipe shape: age-filtered cleanup of a non-protected dir.
+        assert_eq!(
+            gate_decision("find ~/Library/Logs -mtime +7 -delete", HOME, &empty()),
+            GateDecision::Allow
+        );
+        assert_eq!(
+            gate_decision(
+                "find /Applications -maxdepth 1 -name 'Install macOS*' -mtime +14 -exec rm -rf {} +",
+                HOME,
+                &empty()
+            ),
+            GateDecision::Allow
+        );
+    }
+    #[test]
+    fn find_pipe_xargs_rm_is_non_canonical() {
+        // The pipe is the disqualifier — a grep/sed could diverge the set.
         let d = gate_decision(
             "find ~/Library/Application\\ Support -name '*' | xargs rm -rf",
             HOME,
             &empty(),
         );
-        assert!(matches!(d, GateDecision::RejectSweep { .. }), "{:?}", d);
+        assert!(matches!(d, GateDecision::RejectNonCanonical { .. }), "{:?}", d);
     }
     #[test]
-    fn unlink_in_protected_tree_gated() {
+    fn find_with_relative_root_is_non_canonical() {
+        for cmd in ["find . -name '*.tmp' -delete", "find Library -delete"] {
+            assert!(
+                matches!(gate_decision(cmd, HOME, &empty()), GateDecision::RejectNonCanonical { .. }),
+                "should reject relative find root: {cmd}"
+            );
+        }
+    }
+    #[test]
+    fn find_with_no_explicit_root_is_non_canonical() {
+        let d = gate_decision("find -name '*.log' -delete", HOME, &empty());
+        assert!(matches!(d, GateDecision::RejectNonCanonical { .. }), "{:?}", d);
+    }
+    #[test]
+    fn rmdir_shred_srm_are_non_canonical() {
+        for cmd in [
+            "rmdir ~/Library/Application\\ Support/Adobe",
+            "shred -u ~/Documents/x",
+            "srm -rf ~/Documents/x",
+        ] {
+            assert!(
+                matches!(gate_decision(cmd, HOME, &empty()), GateDecision::RejectNonCanonical { .. }),
+                "should be non-canonical: {cmd}"
+            );
+        }
+    }
+    #[test]
+    fn unlink_canonical_then_gated() {
+        // unlink IS a canonical leader; the path is then gated by the tree logic.
         let d = gate_decision("unlink ~/Documents/taxes.pdf", HOME, &empty());
         assert!(matches!(d, GateDecision::RejectNeedsInspection { .. }), "{:?}", d);
     }
     #[test]
     fn nondestructive_find_is_not_a_delete() {
-        let d = gate_decision(
-            "find ~/Library/Application\\ Support -name '*.log'",
-            HOME,
-            &empty(),
+        assert_eq!(
+            gate_decision("find ~/Library/Application\\ Support -name '*.log'", HOME, &empty()),
+            GateDecision::Allow
         );
-        assert_eq!(d, GateDecision::Allow);
     }
     #[test]
     fn destructive_find_does_not_count_as_inspection() {
-        assert!(inspected_paths(
-            "find ~/Library/Application\\ Support -delete",
-            HOME
-        )
-        .is_empty());
+        assert!(inspected_paths("find ~/Library/Application\\ Support -delete", HOME).is_empty());
+    }
+
+    // ── Fail-closed: indirection & relative paths the harness can't read ──
+
+    #[test]
+    fn relative_path_delete_is_non_canonical() {
+        // The cd-then-relative bypass.
+        let d = gate_decision("cd ~ && rm -rf Library/Application\\ Support/Adobe", HOME, &empty());
+        assert!(matches!(d, GateDecision::RejectNonCanonical { .. }), "{:?}", d);
+    }
+    #[test]
+    fn command_substitution_delete_is_non_canonical() {
+        let d = gate_decision("rm -rf $(cat ~/to-delete.txt)", HOME, &empty());
+        assert!(matches!(d, GateDecision::RejectNonCanonical { .. }), "{:?}", d);
+    }
+    #[test]
+    fn variable_operand_is_non_canonical() {
+        let d = gate_decision("rm -rf $TARGET/cache", HOME, &empty());
+        assert!(matches!(d, GateDecision::RejectNonCanonical { .. }), "{:?}", d);
+    }
+    #[test]
+    fn pipe_in_delete_is_non_canonical() {
+        let d = gate_decision("ls ~/Library | rm -rf ~/Library/Caches", HOME, &empty());
+        assert!(matches!(d, GateDecision::RejectNonCanonical { .. }), "{:?}", d);
+    }
+    #[test]
+    fn eval_is_non_canonical() {
+        let d = gate_decision("eval \"rm -rf ~/Library/Application Support\"", HOME, &empty());
+        assert!(matches!(d, GateDecision::RejectNonCanonical { .. }), "{:?}", d);
+    }
+    #[test]
+    fn pipe_to_shell_is_non_canonical() {
+        let d = gate_decision("echo cm0gLXJmIH4v | base64 -d | sh", HOME, &empty());
+        assert!(matches!(d, GateDecision::RejectNonCanonical { .. }), "{:?}", d);
+    }
+    #[test]
+    fn no_preserve_root_flag_is_non_canonical() {
+        let d = gate_decision("rm -rf --no-preserve-root /tmp/x", HOME, &empty());
+        assert!(matches!(d, GateDecision::RejectNonCanonical { .. }), "{:?}", d);
+    }
+    #[test]
+    fn canonical_absolute_rm_outside_protected_allowed() {
+        // The blessed form, in a safe location → just runs.
+        assert_eq!(gate_decision("rm -rf /tmp/build-cache", HOME, &empty()), GateDecision::Allow);
     }
 
     // ── New protected trees ──────────────────────────────────────────────
