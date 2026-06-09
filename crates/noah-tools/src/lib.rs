@@ -1,3 +1,4 @@
+pub mod safety;
 mod tool;
 mod types;
 

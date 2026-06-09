@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -91,6 +91,12 @@ pub struct Orchestrator {
     knowledge_dir: std::path::PathBuf,
     /// Set to true to cancel the current agentic loop.
     cancelled: Arc<AtomicBool>,
+    /// Inspect-before-delete state: session_id -> set of inspected paths
+    /// (normalised). A delete inside a protected tree is held back until the
+    /// target (or an ancestor within the tree) appears here. See
+    /// `docs/safety-policy.md`. Interior-mutable because `execute_tool` runs
+    /// behind `&self`.
+    inspected_paths: Arc<Mutex<HashMap<String, HashSet<String>>>>,
 }
 
 pub type PendingApprovals = Arc<Mutex<HashMap<String, oneshot::Sender<bool>>>>;
@@ -120,6 +126,7 @@ impl Orchestrator {
             db,
             knowledge_dir,
             cancelled: Arc::new(AtomicBool::new(false)),
+            inspected_paths: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -192,6 +199,12 @@ impl Orchestrator {
     }
 
     pub fn end_session(&mut self, session_id: &str) -> bool {
+        // Drop the inspect-before-delete state for this session. `try_lock`
+        // keeps this sync fn non-blocking; a momentary contention just defers
+        // cleanup, which is harmless (the session id won't be reused).
+        if let Ok(mut map) = self.inspected_paths.try_lock() {
+            map.remove(session_id);
+        }
         self.sessions.remove(session_id).is_some()
     }
 
@@ -916,6 +929,43 @@ impl Orchestrator {
             }
         }
 
+        // ── Inspect-before-delete redline gate (shell_run only) ──────────
+        // The enforced safety layer. A deletion inside a protected tree is
+        // held back until the target has been inspected this session; a
+        // wildcard sweep over such a tree is held back outright; a small
+        // hard-deny floor refuses machine-ending actions even if reaffirmed.
+        // This sits in the harness (not the tool) because it needs session
+        // state — mirroring Claude Code's read-before-edit. See
+        // docs/safety-policy.md.
+        if tool_name == "shell_run" {
+            if let Some(command) = tool_input.get("command").and_then(|v| v.as_str()) {
+                let home = std::env::var("HOME").unwrap_or_default();
+                let decision = {
+                    let map = self.inspected_paths.lock().await;
+                    let empty = HashSet::new();
+                    let set = map.get(session_id).unwrap_or(&empty);
+                    noah_tools::safety::gate_decision(command, &home, set)
+                };
+                if decision.is_rejection() {
+                    emit_debug(
+                        app_handle,
+                        "safety_gate",
+                        &format!("Held back shell_run [{}]", decision.classification()),
+                        json!({
+                            "name": tool_name,
+                            "command": command,
+                            "classification": decision.classification(),
+                            "gate": "rejected",
+                        }),
+                    );
+                    // The tip is fed back to the model as the tool result, so
+                    // it inspects-then-retries (or enumerates) rather than
+                    // erroring out — a harness that redirects, not a wall.
+                    return Ok(decision.message());
+                }
+            }
+        }
+
         // For NeedsApproval tools, request approval from the frontend.
         if tier == SafetyTier::NeedsApproval {
             let reason = tool_input
@@ -946,10 +996,40 @@ impl Orchestrator {
                 );
                 return Ok("Action denied by user.".to_string());
             }
+
+            // Approval granted — record it. Closes the telemetry blind spot
+            // where we only ever saw the *proposed* command, never whether
+            // it was actually approved (docs/safety-policy.md, TODO #1).
+            emit_debug(
+                app_handle,
+                "tool_approved",
+                &format!("User approved {}", tool_name),
+                json!({
+                    "name": tool_name,
+                    "input": tool_input,
+                }),
+            );
         }
 
         // Execute the tool.
         let tool_result = tool.execute(tool_input).await?;
+
+        // Record read-class inspections (ls/du/find/stat/...) so a later
+        // delete inside a protected tree can clear the gate above. This is
+        // the "read" half of read-before-delete.
+        if tool_name == "shell_run" {
+            if let Some(command) = tool_input.get("command").and_then(|v| v.as_str()) {
+                let home = std::env::var("HOME").unwrap_or_default();
+                let paths = noah_tools::safety::inspected_paths(command, &home);
+                if !paths.is_empty() {
+                    let mut map = self.inspected_paths.lock().await;
+                    let set = map.entry(session_id.to_string()).or_default();
+                    for p in paths {
+                        set.insert(p);
+                    }
+                }
+            }
+        }
 
         // Record any changes in the journal.
         if !tool_result.changes.is_empty() {

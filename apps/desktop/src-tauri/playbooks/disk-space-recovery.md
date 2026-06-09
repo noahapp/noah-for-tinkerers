@@ -15,7 +15,7 @@ Explicit: "clean up my storage", "free disk space", "find space hogs", "check st
 
 ## Scope
 **In**: cache-class data — package managers, Xcode/simulators/DerivedData, app caches (Slack, Discord, Code, Cursor), Trash, old logs, stale incomplete downloads, old macOS installers.
-**Out (redirect)**: moving files to cloud (use the provider's selective-sync); uninstalling apps (Applications folder for now); Photos/Mail/Messages bodies (TCC — System Settings → Storage).
+**Out (redirect)**: moving files to cloud — that means *offload* (copy → verify the copy exists → only then delete local), never straight-delete; uninstalling apps (Applications folder for now); Photos/Mail/Messages bodies (TCC — System Settings → Storage). If a quota forces touching irreplaceable data, stop and surface it — do not delete it to hit a number.
 
 ## Heuristics
 - ≥20% free → healthy, don't push cleanup.
@@ -78,7 +78,7 @@ ls -la ~/Library/CloudStorage/ ~/Library/Mobile\ Documents/ 2>/dev/null
 Folder hints: `GoogleDrive-*`, `Dropbox`, `OneDrive*`, `com~apple~CloudDocs` (iCloud).
 
 ## Critical exclusions
-Refuse even with user blessing:
+Deletes inside protected trees (Application Support, Containers, Messages, etc.) are **gated by the harness**: you must inspect a folder (`ls`/`du`) before deleting it, and blind wildcard sweeps like `rm -rf .../Application Support/*` are held back — enumerate and remove specific, inspected subdirs instead. Refuse even with user blessing:
 - `~/.claude/`, `~/.local/share/claude/`, `~/Library/Application Support/Codex/`, `~/Library/Logs/com.openai.codex/` — AI assistant state and history (Claude Code, Codex Desktop).
 - `~/Library/Application Support/{Code,Cursor,Zed}/User/` — editor settings (Cache* subdirs are fine).
 - `~/Library/Application Support/{1Password,Bitwarden,Dashlane}/` — credential vaults.
