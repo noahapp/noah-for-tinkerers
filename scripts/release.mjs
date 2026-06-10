@@ -349,6 +349,29 @@ async function main() {
   await runCommand("gh", ["release", "upload", tag, ...toUpload, "--clobber"]);
   await runCommand("gh", ["release", "view", tag, "--json", "url", "-q", ".url"]);
 
+  // Mirror the stable installers to Cloudflare R2 so onnoah.app/download/X
+  // serves them directly (self-hosted, every request tracked) instead of
+  // redirecting to GitHub. Best-effort: an R2 hiccup must never fail a
+  // release — the download functions fall back to GitHub on any R2 miss.
+  //
+  // Only artifacts built on THIS machine are present (the Mac .dmg here).
+  // Windows/Linux installers are produced by CI and mirrored afterwards
+  // with `node scripts/r2-sync.mjs` once that CI completes.
+  const R2_CONTENT_TYPE = { "Noah.dmg": "application/x-apple-diskimage" };
+  for (const stablePath of stableCopies) {
+    const key = path.basename(stablePath);
+    const ct = R2_CONTENT_TYPE[key] ?? "application/octet-stream";
+    try {
+      await runCommand("npx", [
+        "wrangler", "r2", "object", "put", `noah-downloads/${key}`,
+        `--file=${stablePath}`, `--content-type=${ct}`, "--remote",
+      ]);
+      console.log(`    R2: ${key} → noah-downloads`);
+    } catch (e) {
+      console.log(`    R2 upload skipped for ${key} (${e.message}) — GitHub fallback still serves it`);
+    }
+  }
+
   // Clean up local latest.json
   if (latestJsonPath && existsSync(latestJsonPath)) {
     await rm(latestJsonPath);
