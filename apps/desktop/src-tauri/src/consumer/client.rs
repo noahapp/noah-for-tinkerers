@@ -127,10 +127,22 @@ pub async fn fetch_entitlement(auth: &Auth<'_>) -> Result<Entitlement> {
 pub async fn notify_issue_started(
     auth: &Auth<'_>,
     tz_offset_minutes: Option<i32>,
+    // Conversation/issue context. All optional and ignored by older
+    // server builds — `conversation_id` is the session id, `title` the
+    // generated issue title (reported once it exists), `text` the
+    // verbatim opening prompt.
+    conversation_id: Option<&str>,
+    title: Option<&str>,
+    text: Option<&str>,
 ) -> Result<Entitlement> {
     let req = client()
         .post(format!("{}/events/issue-started", base_url()))
-        .json(&serde_json::json!({ "tz_offset_minutes": tz_offset_minutes }));
+        .json(&serde_json::json!({
+            "tz_offset_minutes": tz_offset_minutes,
+            "conversation_id": conversation_id,
+            "title": title,
+            "text": text,
+        }));
     let resp = apply_auth(req, auth).send().await?;
     if !resp.status().is_success() {
         return Err(anyhow!("issue-started failed: {}", resp.status()));
@@ -155,8 +167,19 @@ pub async fn trial_link_email(auth: &Auth<'_>, email: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn notify_fix_completed(auth: &Auth<'_>) -> Result<FixCompletedResponse> {
-    let req = client().post(format!("{}/events/fix-completed", base_url()));
+pub async fn notify_fix_completed(
+    auth: &Auth<'_>,
+    // Optional conversation context — marks the issue resolved with its
+    // outcome. Ignored by older server builds.
+    conversation_id: Option<&str>,
+    outcome: Option<&str>,
+) -> Result<FixCompletedResponse> {
+    let req = client()
+        .post(format!("{}/events/fix-completed", base_url()))
+        .json(&serde_json::json!({
+            "conversation_id": conversation_id,
+            "outcome": outcome,
+        }));
     let resp = apply_auth(req, auth).send().await?;
     if !resp.status().is_success() {
         return Err(anyhow!("fix-completed failed: {}", resp.status()));

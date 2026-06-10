@@ -557,12 +557,20 @@ export async function consumerGetEntitlement(): Promise<Entitlement | null> {
 
 export async function consumerNotifyIssueStarted(
   tzOffsetMinutes?: number,
+  // Conversation/issue context (all optional, ignored by older servers):
+  // the session id, the generated title, and the verbatim opening prompt.
+  conversationId?: string,
+  title?: string,
+  text?: string,
 ): Promise<Entitlement | null> {
   return await invoke<Entitlement | null>("consumer_notify_issue_started", {
     tzOffsetMinutes:
       typeof tzOffsetMinutes === "number"
         ? tzOffsetMinutes
         : new Date().getTimezoneOffset(),
+    conversationId: conversationId ?? null,
+    title: title ?? null,
+    text: text ?? null,
   });
 }
 
@@ -577,8 +585,14 @@ export async function consumerTrialLinkEmail(email: string): Promise<void> {
   await invoke<void>("consumer_trial_link_email", { email });
 }
 
-export async function consumerNotifyFixCompleted(): Promise<FixCompletedResult | null> {
-  return await invoke<FixCompletedResult | null>("consumer_notify_fix_completed");
+export async function consumerNotifyFixCompleted(
+  conversationId?: string,
+  outcome?: string,
+): Promise<FixCompletedResult | null> {
+  return await invoke<FixCompletedResult | null>("consumer_notify_fix_completed", {
+    conversationId: conversationId ?? null,
+    outcome: outcome ?? null,
+  });
 }
 
 export async function consumerBillingCheckoutUrl(plan: "monthly" | "annual"): Promise<string> {

@@ -1027,7 +1027,10 @@ function DoneCard({
     // to surface here.
     if (value) {
       try {
-        const result = await commands.consumerNotifyFixCompleted();
+        const result = await commands.consumerNotifyFixCompleted(
+          sessionId,
+          summary,
+        );
         if (result) {
           useConsumerStore.getState().setEntitlement(result.entitlement);
         }

@@ -154,7 +154,14 @@ export function useAgent(): UseAgentReturn {
       }
       if (!ent || ent.status === "none") {
         try {
-          const started = await commands.consumerNotifyIssueStarted();
+          // Pass conversation (session) id + the verbatim opening prompt so
+          // the backend records authoritative user text, not a proxy guess.
+          const started = await commands.consumerNotifyIssueStarted(
+            undefined,
+            originSessionId,
+            undefined,
+            trimmed,
+          );
           if (started) consumer.setEntitlement(started);
         } catch {
           // non-fatal — trial start is best-effort; server is authoritative
