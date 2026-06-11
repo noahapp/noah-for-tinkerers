@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { getHealthScore, type HealthScore } from "../lib/tauri-commands";
+import { findingsFromHealthScore } from "../lib/onboarding-findings";
 import { useConsumerStore } from "../stores/consumerStore";
 import { useScanRevealPaywall } from "../stores/useScanRevealPaywall";
 
@@ -18,7 +20,10 @@ type Tone = "bad" | "warn" | "ok";
 
 export interface Finding {
   tone: Tone;
-  big: string;
+  /** Punchy headline value ("9.1 GB", "12 apps"). Optional — real diagnostic
+   *  checks don't always have a clean number, in which case the card leads with
+   *  the label. */
+  big?: string;
   label: string;
   detail: string;
 }
@@ -30,8 +35,10 @@ export interface OnboardingFlowProps {
   initialProblem?: string;
   /** Scan dwell before the reveal. Override (e.g. 0) in tests. */
   scanDurationMs?: number;
-  /** Diagnosis cards per problem. Defaults to the built-in set. */
+  /** Diagnosis cards per problem. Fallback when the live scan finds nothing. */
   findingsByProblem?: Record<string, Finding[]>;
+  /** Diagnostics source. Defaults to the real `getHealthScore`; injectable for tests. */
+  fetchHealthScore?: () => Promise<HealthScore | null>;
 }
 
 const PROBLEMS: { id: string; emoji: string; title: string; sub: string }[] = [
@@ -73,9 +80,11 @@ export function OnboardingFlow({
   initialProblem,
   scanDurationMs = 2600,
   findingsByProblem = DEFAULT_FINDINGS,
+  fetchHealthScore = getHealthScore,
 }: OnboardingFlowProps) {
   const [step, setStep] = useState<Step>("welcome");
   const [problem, setProblem] = useState(initialProblem ?? "slow");
+  const [liveFindings, setLiveFindings] = useState<Finding[] | null>(null);
   const fixCount = useConsumerStore((s) => s.entitlement?.fix_count_total ?? 0);
 
   // The integration: once the reveal is on screen, surface the launch-arm
@@ -84,11 +93,25 @@ export function OnboardingFlow({
 
   useEffect(() => {
     if (step !== "scan") return;
+    let active = true;
+    // Real diagnosis: fetch the health score during the scan dwell and map it
+    // to findings. Falls back to the curated defaults if it's empty or errors,
+    // so the reveal is never blank.
+    void fetchHealthScore()
+      .then((score) => {
+        if (!active) return;
+        const mapped = findingsFromHealthScore(score, problem);
+        if (mapped.length) setLiveFindings(mapped);
+      })
+      .catch(() => {});
     const id = setTimeout(() => setStep("reveal"), scanDurationMs);
-    return () => clearTimeout(id);
-  }, [step, scanDurationMs]);
+    return () => {
+      active = false;
+      clearTimeout(id);
+    };
+  }, [step, scanDurationMs, problem, fetchHealthScore]);
 
-  const findings = findingsByProblem[problem] ?? findingsByProblem.slow ?? [];
+  const findings = liveFindings ?? findingsByProblem[problem] ?? findingsByProblem.slow ?? [];
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col items-center justify-center px-8 text-center bg-bg-primary"
@@ -153,8 +176,8 @@ export function OnboardingFlow({
                 <span className="w-8 h-8 flex-none grid place-items-center rounded-lg text-base font-bold"
                       style={{ background: TONE[f.tone].bg, color: TONE[f.tone].fg }}>{TONE[f.tone].mark}</span>
                 <span>
-                  <span className="block text-[19px] font-bold leading-none text-text-primary">{f.big}</span>
-                  <span className="block text-[13px] font-semibold mt-1 text-text-primary">{f.label}</span>
+                  {f.big && <span className="block text-[19px] font-bold leading-none text-text-primary">{f.big}</span>}
+                  <span className={"block text-[13px] font-semibold text-text-primary" + (f.big ? " mt-1" : "")}>{f.label}</span>
                   <span className="block text-[12px] text-text-muted mt-0.5">{f.detail}</span>
                 </span>
               </div>

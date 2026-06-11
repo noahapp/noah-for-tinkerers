@@ -2,9 +2,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-import type { Entitlement } from "../lib/tauri-commands";
+import type { Entitlement, HealthScore } from "../lib/tauri-commands";
 import { useConsumerStore } from "../stores/consumerStore";
 import { OnboardingFlow } from "./OnboardingFlow";
+
+const liveScore: HealthScore = {
+  overall_score: 60, overall_grade: "C",
+  categories: [{ category: "memory", score: 60, grade: "C", checks: [
+    { id: "m", category: "memory", label: "RAM almost full", status: "fail", detail: "9 GB used" },
+  ] }],
+  computed_at: "now", device_id: null,
+};
 
 function setArm(placement: "launch" | "after_fix", extra: Partial<Entitlement> = {}) {
   useConsumerStore.setState({
@@ -66,6 +74,24 @@ describe("OnboardingFlow", () => {
     fireEvent.click(screen.getByText("Look into it →"));
     // storage-specific diagnosis card (headline text is split across spans)
     await waitFor(() => expect(screen.getByText("Reclaimable now")).toBeTruthy());
+  });
+
+  it("uses LIVE diagnostics when the scan returns findings", async () => {
+    setArm("after_fix");
+    render(<OnboardingFlow onComplete={() => {}} scanDurationMs={0} fetchHealthScore={async () => liveScore} />);
+    fireEvent.click(screen.getByText("Get started"));
+    fireEvent.click(screen.getByText("Look into it →"));
+    await waitFor(() => expect(screen.getByText("RAM almost full")).toBeTruthy());
+    // the curated default must NOT show when real data is present
+    expect(screen.queryByText("Tied up by Chrome + 47 tabs")).toBeNull();
+  });
+
+  it("falls back to curated defaults when live diagnostics are empty", async () => {
+    setArm("after_fix");
+    render(<OnboardingFlow onComplete={() => {}} scanDurationMs={0} fetchHealthScore={async () => null} />);
+    fireEvent.click(screen.getByText("Get started"));
+    fireEvent.click(screen.getByText("Look into it →"));
+    await waitFor(() => expect(screen.getByText("Tied up by Chrome + 47 tabs")).toBeTruthy());
   });
 
   it("the reveal CTA completes onboarding", async () => {
