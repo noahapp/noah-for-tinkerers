@@ -55,7 +55,7 @@ fn is_macos_private(path: &str, home: &str) -> bool {
     #[cfg(not(target_os = "macos"))]
     {
         let _ = (path, home);
-        return false;
+        false
     }
 
     #[cfg(target_os = "macos")]

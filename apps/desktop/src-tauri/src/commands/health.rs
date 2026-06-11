@@ -295,93 +295,97 @@ pub async fn run_health_check(
 /// Uses macOS `x-apple.systempreferences:` deep links or Windows ms-settings: URIs.
 #[tauri::command]
 pub async fn open_health_fix(check_id: String) -> Result<(), String> {
-    let target = match check_id.as_str() {
-        // macOS
-        #[cfg(target_os = "macos")]
-        "security.firewall" => {
-            "x-apple.systempreferences:com.apple.Network-Settings.extension?Firewall"
-        }
-        #[cfg(target_os = "macos")]
-        "security.filevault" => "x-apple.systempreferences:com.apple.preference.security?FDE",
-        #[cfg(target_os = "macos")]
-        "security.screen_lock" => {
-            "x-apple.systempreferences:com.apple.Lock-Screen-Settings.extension"
-        }
-        #[cfg(target_os = "macos")]
-        "security.gatekeeper" => "x-apple.systempreferences:com.apple.preference.security?General",
-        #[cfg(target_os = "macos")]
-        "security.xprotect" => {
-            "x-apple.systempreferences:com.apple.Software-Update-Settings.extension"
-        }
-        #[cfg(target_os = "macos")]
-        "updates.os" => "x-apple.systempreferences:com.apple.Software-Update-Settings.extension",
-        #[cfg(target_os = "macos")]
-        "backups.timemachine" | "backups.timemachine_dest" => {
-            "x-apple.systempreferences:com.apple.Time-Machine-Settings.extension"
-        }
-        #[cfg(target_os = "macos")]
-        "security.sip" => {
-            // SIP can't be toggled from user space — no settings pane to open.
-            return Err("SIP must be changed from Recovery Mode (csrutil enable)".to_string());
-        }
-
-        // Windows
-        #[cfg(target_os = "windows")]
-        "security.defender" => "ms-settings:windowsdefender",
-        #[cfg(target_os = "windows")]
-        "security.bitlocker" => {
-            // BitLocker lives in Control Panel, not ms-settings.
-            std::process::Command::new("control")
-                .args(["/name", "Microsoft.BitLockerDriveEncryption"])
-                .spawn()
-                .map_err(|e| format!("Failed to open BitLocker settings: {}", e))?;
-            return Ok(());
-        }
-        #[cfg(target_os = "windows")]
-        "security.firewall" => "ms-settings:windowsdefender",
-        #[cfg(target_os = "windows")]
-        "security.uac" => {
-            // UAC settings have their own executable, not an ms-settings URI.
-            std::process::Command::new("UserAccountControlSettings.exe")
-                .spawn()
-                .map_err(|e| format!("Failed to open UAC settings: {}", e))?;
-            return Ok(());
-        }
-        #[cfg(target_os = "windows")]
-        "security.screen_lock" => "ms-settings:lockscreen",
-        #[cfg(target_os = "windows")]
-        "updates.os" => "ms-settings:windowsupdate",
-        #[cfg(target_os = "windows")]
-        "backups.filehistory" => "ms-settings:backup",
-        #[cfg(target_os = "windows")]
-        "backups.restore_points" => "ms-settings:recovery",
-
-        _ => return Err(format!("No settings pane for check: {}", check_id)),
-    };
-
-    #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open")
-            .arg(target)
-            .spawn()
-            .map_err(|e| format!("Failed to open settings: {}", e))?;
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        std::process::Command::new("cmd")
-            .args(["/C", "start", "", target])
-            .spawn()
-            .map_err(|e| format!("Failed to open settings: {}", e))?;
-    }
-
     #[cfg(target_os = "linux")]
     {
-        let _ = target;
+        let _ = check_id;
         return Err("Settings deep links not available on Linux".to_string());
     }
 
-    Ok(())
+    #[cfg(not(target_os = "linux"))]
+    {
+        let target = match check_id.as_str() {
+            // macOS
+            #[cfg(target_os = "macos")]
+            "security.firewall" => {
+                "x-apple.systempreferences:com.apple.Network-Settings.extension?Firewall"
+            }
+            #[cfg(target_os = "macos")]
+            "security.filevault" => "x-apple.systempreferences:com.apple.preference.security?FDE",
+            #[cfg(target_os = "macos")]
+            "security.screen_lock" => {
+                "x-apple.systempreferences:com.apple.Lock-Screen-Settings.extension"
+            }
+            #[cfg(target_os = "macos")]
+            "security.gatekeeper" => {
+                "x-apple.systempreferences:com.apple.preference.security?General"
+            }
+            #[cfg(target_os = "macos")]
+            "security.xprotect" => {
+                "x-apple.systempreferences:com.apple.Software-Update-Settings.extension"
+            }
+            #[cfg(target_os = "macos")]
+            "updates.os" => {
+                "x-apple.systempreferences:com.apple.Software-Update-Settings.extension"
+            }
+            #[cfg(target_os = "macos")]
+            "backups.timemachine" | "backups.timemachine_dest" => {
+                "x-apple.systempreferences:com.apple.Time-Machine-Settings.extension"
+            }
+            #[cfg(target_os = "macos")]
+            "security.sip" => {
+                return Err("SIP must be changed from Recovery Mode (csrutil enable)".to_string());
+            }
+
+            // Windows
+            #[cfg(target_os = "windows")]
+            "security.defender" => "ms-settings:windowsdefender",
+            #[cfg(target_os = "windows")]
+            "security.bitlocker" => {
+                std::process::Command::new("control")
+                    .args(["/name", "Microsoft.BitLockerDriveEncryption"])
+                    .spawn()
+                    .map_err(|e| format!("Failed to open BitLocker settings: {}", e))?;
+                return Ok(());
+            }
+            #[cfg(target_os = "windows")]
+            "security.firewall" => "ms-settings:windowsdefender",
+            #[cfg(target_os = "windows")]
+            "security.uac" => {
+                std::process::Command::new("UserAccountControlSettings.exe")
+                    .spawn()
+                    .map_err(|e| format!("Failed to open UAC settings: {}", e))?;
+                return Ok(());
+            }
+            #[cfg(target_os = "windows")]
+            "security.screen_lock" => "ms-settings:lockscreen",
+            #[cfg(target_os = "windows")]
+            "updates.os" => "ms-settings:windowsupdate",
+            #[cfg(target_os = "windows")]
+            "backups.filehistory" => "ms-settings:backup",
+            #[cfg(target_os = "windows")]
+            "backups.restore_points" => "ms-settings:recovery",
+
+            _ => return Err(format!("No settings pane for check: {}", check_id)),
+        };
+
+        #[cfg(target_os = "macos")]
+        {
+            std::process::Command::new("open")
+                .arg(target)
+                .spawn()
+                .map_err(|e| format!("Failed to open settings: {}", e))?;
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            std::process::Command::new("cmd")
+                .args(["/C", "start", "", target])
+                .spawn()
+                .map_err(|e| format!("Failed to open settings: {}", e))?;
+        }
+
+        Ok(())
+    }
 }
 
 /// Get the last N health scores for history display.

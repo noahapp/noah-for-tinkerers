@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_mut)]
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
