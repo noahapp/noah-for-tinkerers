@@ -107,6 +107,15 @@ describe("OnboardingFlow", () => {
     await waitFor(() => expect(screen.getByText("Tied up by Chrome + 47 tabs")).toBeTruthy());
   });
 
+  it("shows problem-appropriate findings for Wi-Fi (general-purpose, not a cleanup fallback)", async () => {
+    setArm("after_fix");
+    render(<OnboardingFlow onComplete={() => {}} initialProblem="wifi" scanDurationMs={0} fetchHealthScore={async () => null} />);
+    fireEvent.click(screen.getByText("Get started"));
+    fireEvent.click(screen.getByText("Look into it →"));
+    await waitFor(() => expect(screen.getByText("DNS is timing out")).toBeTruthy());
+    expect(screen.queryByText("Tied up by Chrome + 47 tabs")).toBeNull();
+  });
+
   it("the reveal CTA hands off to sign-in, seeded with the problem", async () => {
     setArm("after_fix");
     render(<OnboardingFlow onComplete={() => {}} initialProblem="storage" scanDurationMs={0} fetchHealthScore={async () => null} />);

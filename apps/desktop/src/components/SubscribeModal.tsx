@@ -74,14 +74,24 @@ export function SubscribeModal({
     ? "PC"
     : "Mac";
   const fillDevice = (s: string) => s.replace(/\{device\}/g, device);
+
+  // scan_reveal is shown to a brand-new user and starts a CARD-ON-FILE trial
+  // (Apple Pay). So it must NOT reuse the "no card" copy — that would be a
+  // bait-and-switch. Honest, plain terms instead. (English inline for now;
+  // i18n before this flag ships.)
+  const scanReveal = variant === "scan_reveal";
+  const priceLabel = `${t(`subscribe.plan.${plan}.price`)}${t(`subscribe.plan.${plan}.priceUnit`)}`;
+
   const headline = fillDevice(
-    variant === "first_fix" || variant === "scan_reveal"
-      ? t("subscribe.firstFixHeadline")
-      : variant === "second_issue"
-        ? t("subscribe.secondIssueHeadline")
-        : variant === "cap_hit"
-          ? t("subscribe.capHitHeadline")
-          : t("subscribe.paywallHeadline")
+    scanReveal
+      ? "Start your free trial"
+      : variant === "first_fix"
+        ? t("subscribe.firstFixHeadline")
+        : variant === "second_issue"
+          ? t("subscribe.secondIssueHeadline")
+          : variant === "cap_hit"
+            ? t("subscribe.capHitHeadline")
+            : t("subscribe.paywallHeadline")
   );
 
   const dateLabel = formatTrialEndDate(
@@ -90,7 +100,9 @@ export function SubscribeModal({
   );
 
   const body =
-    variant === "first_fix" || variant === "scan_reveal"
+    scanReveal
+      ? "Noah fixes what we found — and stays for whatever's next: storage, Wi-Fi, backups, security."
+      : variant === "first_fix"
       ? t("subscribe.firstFixBody")
       : variant === "second_issue"
         ? t("subscribe.secondIssueBody").replace("{date}", dateLabel)
@@ -125,7 +137,7 @@ export function SubscribeModal({
               color: "var(--color-accent-indigo)",
             }}
           >
-            {t("subscribe.trustPill")}
+            {scanReveal ? "7 days free · cancel anytime" : t("subscribe.trustPill")}
           </span>
           <h3 className="text-[24px] font-semibold text-text-primary leading-[1.15] tracking-tight">
             {headline}
@@ -214,7 +226,7 @@ export function SubscribeModal({
             disabled={loading}
             className="w-full py-3.5 rounded-2xl text-[15.5px] font-semibold cursor-pointer disabled:opacity-50 btn-commit"
           >
-            {loading ? t("subscribe.opening") : t("subscribe.subscribe")}
+            {loading ? t("subscribe.opening") : scanReveal ? "Start free trial" : t("subscribe.subscribe")}
           </button>
           {/* Trust footnote — lives BELOW the CTA, not above it. The
               user has already seen the headline and the price; this
@@ -226,14 +238,16 @@ export function SubscribeModal({
           <p className="mt-2.5 text-[11.5px] text-text-muted text-center">
             {isPostCheckoutPolling
               ? t("subscribe.alreadyPaidNote")
-              : t("subscribe.footnote")}
+              : scanReveal
+                ? `$0 today · 7 days free, then ${priceLabel} · cancel anytime — we'll remind you before it renews`
+                : t("subscribe.footnote")}
           </p>
 
           <button
             onClick={onDismiss}
             className="w-full mt-2 py-2 text-[12.5px] text-text-muted hover:text-text-secondary transition-colors cursor-pointer"
           >
-            {t("subscribe.keepTrial")}
+            {scanReveal ? "Maybe later" : t("subscribe.keepTrial")}
           </button>
         </div>
 

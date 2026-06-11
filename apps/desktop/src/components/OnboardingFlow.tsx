@@ -77,6 +77,28 @@ const DEFAULT_FINDINGS: Record<string, Finding[]> = {
     { tone: "warn", big: "4.2 GB", label: "Leftover from deleted apps", detail: "support files no app uses" },
     { tone: "ok", big: "On", label: "iCloud could offload more", detail: "I can set that up too" },
   ],
+  wifi: [
+    { tone: "bad", label: "DNS is timing out", detail: "why some sites won't load" },
+    { tone: "warn", label: "Crowded Wi-Fi channel", detail: "your router overlaps 3 neighbors" },
+    { tone: "warn", label: "Weak signal where you sit", detail: "−72 dBm — borderline" },
+    { tone: "ok", label: "Connection itself is stable", detail: "no dropped link in the last hour" },
+  ],
+  security: [
+    { tone: "bad", label: "FileVault is off", detail: "your disk isn't encrypted" },
+    { tone: "warn", label: "5 security updates pending", detail: "including a Safari patch" },
+    { tone: "warn", label: "2 login items you didn't add", detail: "worth a look" },
+    { tone: "ok", label: "Firewall is on", detail: "you're covered here" },
+  ],
+  backup: [
+    { tone: "bad", big: "11 days", label: "Since your last backup", detail: "Time Machine is overdue" },
+    { tone: "warn", label: "No backup disk configured", detail: "nothing's catching your files" },
+    { tone: "warn", label: "iCloud has only the basics", detail: "Desktop & Documents aren't synced" },
+    { tone: "ok", label: "Your files are intact right now", detail: "let's keep it that way" },
+  ],
+  other: [
+    { tone: "warn", label: "A few things worth a look", detail: "I checked memory, storage, security & backups" },
+    { tone: "ok", label: "Nothing on fire", detail: "tell me what's bugging you and I'll dig in" },
+  ],
 };
 
 const TONE: Record<Tone, { bg: string; fg: string; mark: string }> = {
