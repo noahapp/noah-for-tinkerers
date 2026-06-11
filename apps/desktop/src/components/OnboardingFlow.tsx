@@ -3,6 +3,7 @@ import { getHealthScore, type HealthScore } from "../lib/tauri-commands";
 import { findingsFromHealthScore } from "../lib/onboarding-findings";
 import { useConsumerStore } from "../stores/consumerStore";
 import { useScanRevealPaywall } from "../stores/useScanRevealPaywall";
+import { SignInScreen } from "./SignInScreen";
 
 /**
  * Noah onboarding — problem-led, proof-first. Welcome → "what's wrong?" →
@@ -15,7 +16,19 @@ import { useScanRevealPaywall } from "../stores/useScanRevealPaywall";
  * the hook — so this component only drives the steps and the signals. Findings
  * and scan duration are injectable so the real diagnostics (and tests) plug in.
  */
-type Step = "welcome" | "pick" | "scan" | "reveal";
+type Step = "welcome" | "pick" | "scan" | "reveal" | "signin";
+
+// First-message seed per problem — stashed by SignInScreen so the chat
+// auto-sends it after login, turning the problem the user picked into Noah's
+// first fix. Plain first-person phrasing, matching the in-app templates.
+const SEED_MESSAGES: Record<string, string> = {
+  slow: "My Mac feels slow",
+  storage: "I'm running low on storage",
+  wifi: "My Wi-Fi keeps dropping",
+  security: "I'm worried my Mac isn't secure",
+  backup: "I'm not sure my Mac is backed up",
+  other: "Something's wrong with my Mac",
+};
 type Tone = "bad" | "warn" | "ok";
 
 export interface Finding {
@@ -111,6 +124,20 @@ export function OnboardingFlow({
     };
   }, [step, scanDurationMs, problem, fetchHealthScore]);
 
+  // Sign-in handoff: compose the existing SignInScreen, seeded with the picked
+  // problem so the chat auto-runs the fix after login. SignInScreen owns the
+  // magic-link / BYOK flow and the seed stash; on success we enter the app.
+  if (step === "signin") {
+    const label = PROBLEMS.find((p) => p.id === problem)?.title ?? "your Mac";
+    return (
+      <SignInScreen
+        onComplete={onComplete}
+        seedContext={{ label, seedMessage: SEED_MESSAGES[problem] ?? SEED_MESSAGES.slow! }}
+        onBack={() => setStep("reveal")}
+      />
+    );
+  }
+
   const findings = liveFindings ?? findingsByProblem[problem] ?? findingsByProblem.slow ?? [];
 
   return (
@@ -184,9 +211,10 @@ export function OnboardingFlow({
             ))}
           </div>
           <p className="text-[14.5px] text-text-secondary mt-5">It's more than junk — <b className="text-text-primary">I can fix the real cause now.</b></p>
-          {/* Launch arm: the paywall appears over this (via the hook). For the
-              after-fix arm, this button starts the first free fix. */}
-          <button className={btn + " mt-5"} style={{ background: "var(--aurora)" }} onClick={onComplete}>Fix it →</button>
+          {/* Launch arm: the paywall appears over this (via the hook). Either
+              way, "Fix it" hands off to sign-in, seeded with the problem so the
+              fix auto-runs once they're in. */}
+          <button className={btn + " mt-5"} style={{ background: "var(--aurora)" }} onClick={() => setStep("signin")}>Fix it →</button>
         </div>
       )}
     </div>

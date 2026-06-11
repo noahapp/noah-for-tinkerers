@@ -6,6 +6,19 @@ import type { Entitlement, HealthScore } from "../lib/tauri-commands";
 import { useConsumerStore } from "../stores/consumerStore";
 import { OnboardingFlow } from "./OnboardingFlow";
 
+// Stub SignInScreen so these tests don't pull its i18n/command deps — we only
+// care that the handoff renders it, seeds the problem, and routes onComplete.
+vi.mock("./SignInScreen", () => ({
+  SignInScreen: (props: {
+    onComplete: () => void;
+    seedContext?: { label: string; seedMessage: string } | null;
+  }) => (
+    <div data-testid="ob-signin" data-seed={props.seedContext?.seedMessage ?? ""}>
+      <button onClick={props.onComplete}>mock-signin-complete</button>
+    </div>
+  ),
+}));
+
 const liveScore: HealthScore = {
   overall_score: 60, overall_grade: "C",
   categories: [{ category: "memory", score: 60, grade: "C", checks: [
@@ -94,14 +107,27 @@ describe("OnboardingFlow", () => {
     await waitFor(() => expect(screen.getByText("Tied up by Chrome + 47 tabs")).toBeTruthy());
   });
 
-  it("the reveal CTA completes onboarding", async () => {
+  it("the reveal CTA hands off to sign-in, seeded with the problem", async () => {
     setArm("after_fix");
-    const onComplete = vi.fn();
-    render(<OnboardingFlow onComplete={onComplete} scanDurationMs={0} />);
+    render(<OnboardingFlow onComplete={() => {}} initialProblem="storage" scanDurationMs={0} fetchHealthScore={async () => null} />);
     fireEvent.click(screen.getByText("Get started"));
     fireEvent.click(screen.getByText("Look into it →"));
     await waitFor(() => expect(screen.getByTestId("ob-reveal")).toBeTruthy());
     fireEvent.click(screen.getByText("Fix it →"));
+    const signin = screen.getByTestId("ob-signin");
+    expect(signin).toBeTruthy();
+    expect(signin.getAttribute("data-seed")).toBe("I'm running low on storage");
+  });
+
+  it("completing sign-in finishes onboarding", async () => {
+    setArm("after_fix");
+    const onComplete = vi.fn();
+    render(<OnboardingFlow onComplete={onComplete} scanDurationMs={0} fetchHealthScore={async () => null} />);
+    fireEvent.click(screen.getByText("Get started"));
+    fireEvent.click(screen.getByText("Look into it →"));
+    await waitFor(() => expect(screen.getByTestId("ob-reveal")).toBeTruthy());
+    fireEvent.click(screen.getByText("Fix it →"));
+    fireEvent.click(screen.getByText("mock-signin-complete"));
     expect(onComplete).toHaveBeenCalled();
   });
 });
