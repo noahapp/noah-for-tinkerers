@@ -64,7 +64,15 @@
     "keepTrial": "Aún no — mantener mi prueba gratuita",
     "subscribe": "Mantener Noah",
     "opening": "Abriendo el pago…",
-    "fixContinuesNote": "Igual, Noah sigue arreglando esto en segundo plano."
+    "fixContinuesNote": "Igual, Noah sigue arreglando esto en segundo plano.",
+    "scanReveal": {
+      "headline": "Empieza tu prueba gratis",
+      "body": "Noah arregla lo que encontramos — y se queda para lo que venga: almacenamiento, Wi-Fi, copias de seguridad, seguridad.",
+      "pill": "7 días gratis · cancela cuando quieras",
+      "cta": "Empezar prueba gratis",
+      "footnote": "$0 hoy · 7 días gratis, luego {price} · cancela cuando quieras — te avisaremos antes de la renovación",
+      "maybeLater": "Quizás más tarde"
+    }
   },
   "trialBanner": {
     "lead": "Noah es tuyo para usar",

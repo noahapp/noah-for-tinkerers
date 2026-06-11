@@ -330,7 +330,15 @@
     "keepTrial": "暂时不用 — 继续我的免费试用",
     "subscribe": "继续使用 Noah",
     "opening": "正在打开结账…",
-    "fixContinuesNote": "不管怎样，Noah 都会在后台继续修复这个问题。"
+    "fixContinuesNote": "不管怎样，Noah 都会在后台继续修复这个问题。",
+    "scanReveal": {
+      "headline": "开始免费试用",
+      "body": "Noah 会修复我们发现的问题——并继续帮你应对接下来的一切：存储、Wi-Fi、备份、安全。",
+      "pill": "7 天免费 · 随时取消",
+      "cta": "开始免费试用",
+      "footnote": "今天 $0 · 7 天免费，之后 {price} · 随时取消——续费前我们会提醒你",
+      "maybeLater": "以后再说"
+    }
   },
   "trialBanner": {
     "lead": "Noah 是你的",

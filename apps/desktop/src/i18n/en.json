@@ -141,7 +141,15 @@
     "keepTrial": "Not yet — keep my free trial",
     "subscribe": "Keep Noah",
     "opening": "Opening checkout…",
-    "fixContinuesNote": "Either way, Noah keeps fixing this in the background."
+    "fixContinuesNote": "Either way, Noah keeps fixing this in the background.",
+    "scanReveal": {
+      "headline": "Start your free trial",
+      "body": "Noah fixes what we found — and stays for whatever's next: storage, Wi-Fi, backups, security.",
+      "pill": "7 days free · cancel anytime",
+      "cta": "Start free trial",
+      "footnote": "$0 today · 7 days free, then {price} · cancel anytime — we'll remind you before it renews",
+      "maybeLater": "Maybe later"
+    }
   },
   "trialBanner": {
     "lead": "Noah is yours to use",
