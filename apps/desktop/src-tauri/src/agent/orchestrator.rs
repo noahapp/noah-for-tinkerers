@@ -407,7 +407,7 @@ impl Orchestrator {
 
             let response = match self
                 .llm
-                .send_message(messages.clone(), tool_defs.clone(), system.clone())
+                .send_message(messages.clone(), tool_defs.clone(), system.clone(), Some(session_id))
                 .await
             {
                 Ok(response) => response,
@@ -429,7 +429,7 @@ impl Orchestrator {
                             .await?;
                         let retry_messages = self.messages_for_llm(session_id);
                         self.llm
-                            .send_message(retry_messages, tool_defs.clone(), system.clone())
+                            .send_message(retry_messages, tool_defs.clone(), system.clone(), Some(session_id))
                             .await?
                     } else {
                         return Err(err);

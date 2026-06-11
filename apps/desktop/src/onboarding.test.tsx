@@ -341,56 +341,35 @@ describe("Onboarding gate", () => {
 // TilePickerScreen
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe("TilePickerScreen → clarify → seed", () => {
-  it("clicking a tile shows the clarify stage with the tile's title", async () => {
-    const onComplete = vi.fn();
-    const user = userEvent.setup();
-    render(<TilePickerScreen onComplete={onComplete} />);
-    await user.click(screen.getByText("My Mac feels slow"));
-    // Clarify stage echoes the title as a heading
-    expect(
-      screen.getAllByText("My Mac feels slow").length,
-    ).toBeGreaterThan(0);
-    // No detail typed → button reads "Diagnose now" and is enabled
-    // (clicking it seeds the bare category, no clarifier required).
-    // After typing, the same button switches to "Continue".
-    expect(screen.getByText("Diagnose now")).toBeTruthy();
-    const textarea = screen.getByRole("textbox");
-    await user.type(textarea, "a");
-    expect(screen.getByText("Continue")).toBeTruthy();
-  });
-
-  it("stashes a composed seed to localStorage and calls onComplete", async () => {
+describe("TilePickerScreen → diagnose", () => {
+  it("clicking a concrete tile diagnoses immediately — seeds the tile title and calls onComplete, no clarifier", async () => {
     const onComplete = vi.fn();
     const user = userEvent.setup();
     render(<TilePickerScreen onComplete={onComplete} />);
     await user.click(screen.getByText("Wi-Fi or internet issues"));
-    const textarea = screen.getByRole("textbox");
-    await user.type(textarea, "drops every 10 min at home");
-    await user.click(screen.getByText("Continue"));
 
+    // No clarifier screen — picking the tile goes straight to the chat
+    // handoff (no textarea to read as "you must type").
+    expect(screen.queryByRole("textbox")).toBeNull();
     expect(onComplete).toHaveBeenCalledTimes(1);
+
     const stashed = localStorage.getItem("noah.pendingSeed");
     expect(stashed).not.toBeNull();
     const parsed = JSON.parse(stashed!);
-    // Category title prefixed, then user's clarifier
-    expect(parsed.message).toBe(
-      "Wi-Fi or internet issues. drops every 10 min at home",
-    );
+    // Seed is the bare tile title; Noah asks for specifics in-chat.
+    expect(parsed.message).toBe("Wi-Fi or internet issues");
     expect(parsed.expiresAt).toBeGreaterThan(Date.now());
   });
 
-  it("'other' tile preserves the user's raw text without a category prefix", async () => {
+  it("the 'other' tile opens the chat empty — completes with no seed stashed", async () => {
     const onComplete = vi.fn();
     const user = userEvent.setup();
     render(<TilePickerScreen onComplete={onComplete} />);
     await user.click(screen.getByText("Something else"));
-    const textarea = screen.getByRole("textbox");
-    await user.type(textarea, "something weird with Finder");
-    await user.click(screen.getByText("Continue"));
 
-    const parsed = JSON.parse(localStorage.getItem("noah.pendingSeed")!);
-    expect(parsed.message).toBe("something weird with Finder");
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    // No preset problem → nothing auto-sent; user describes it in chat.
+    expect(localStorage.getItem("noah.pendingSeed")).toBeNull();
   });
 
   it("'Already have an account?' routes to the sign-in screen", async () => {
@@ -400,18 +379,6 @@ describe("TilePickerScreen → clarify → seed", () => {
     await user.click(screen.getByText(/Already have an account/));
     // Sign-in prompt comes from i18n en.signIn.prompt
     expect(await screen.findByText("What's your email?")).toBeTruthy();
-  });
-
-  it("Back from clarify returns to the tile grid", async () => {
-    const user = userEvent.setup();
-    render(<TilePickerScreen onComplete={vi.fn()} />);
-    await user.click(screen.getByText("Battery drains fast"));
-    // Use the Back button (there are two — text button and arrow link)
-    const backBtns = screen.getAllByText("Back");
-    await user.click(backBtns[0]);
-    // Grid shows multiple tiles again
-    expect(screen.getByText("My Mac feels slow")).toBeTruthy();
-    expect(screen.getByText("Battery drains fast")).toBeTruthy();
   });
 });
 

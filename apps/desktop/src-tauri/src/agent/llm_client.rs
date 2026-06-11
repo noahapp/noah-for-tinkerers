@@ -393,6 +393,11 @@ impl LlmClient {
             .post(self.api_url())
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
+            // Metadata side-call (title / summary / diagnostic / triage) —
+            // NOT a conversation turn. noah-consumer skips telemetry
+            // capture for any x-noah-call-kind other than "chat", so these
+            // never get recorded as something the user or Noah "said".
+            .header("x-noah-call-kind", "meta")
             .json(&body);
         let resp = self
             .apply_auth(builder)
@@ -441,6 +446,11 @@ impl LlmClient {
             .post(self.api_url())
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
+            // Metadata side-call (title / summary / diagnostic / triage) —
+            // NOT a conversation turn. noah-consumer skips telemetry
+            // capture for any x-noah-call-kind other than "chat", so these
+            // never get recorded as something the user or Noah "said".
+            .header("x-noah-call-kind", "meta")
             .json(&body);
         let resp = self
             .apply_auth(builder)
@@ -515,6 +525,11 @@ impl LlmClient {
             .post(self.api_url())
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
+            // Metadata side-call (title / summary / diagnostic / triage) —
+            // NOT a conversation turn. noah-consumer skips telemetry
+            // capture for any x-noah-call-kind other than "chat", so these
+            // never get recorded as something the user or Noah "said".
+            .header("x-noah-call-kind", "meta")
             .json(&body);
         let resp = self
             .apply_auth(builder)
@@ -580,6 +595,11 @@ impl LlmClient {
             .post(self.api_url())
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
+            // Metadata side-call (title / summary / diagnostic / triage) —
+            // NOT a conversation turn. noah-consumer skips telemetry
+            // capture for any x-noah-call-kind other than "chat", so these
+            // never get recorded as something the user or Noah "said".
+            .header("x-noah-call-kind", "meta")
             .json(&body);
         let resp = self
             .apply_auth(builder)
@@ -659,6 +679,11 @@ impl LlmClient {
             .post(self.api_url())
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
+            // Metadata side-call (title / summary / diagnostic / triage) —
+            // NOT a conversation turn. noah-consumer skips telemetry
+            // capture for any x-noah-call-kind other than "chat", so these
+            // never get recorded as something the user or Noah "said".
+            .header("x-noah-call-kind", "meta")
             .json(&body);
         let resp = self
             .apply_auth(builder)
@@ -704,6 +729,12 @@ impl LlmClient {
         messages: Vec<Message>,
         tools: Vec<ToolDef>,
         system: Vec<crate::agent::prompts::SystemBlock>,
+        // Desktop session id = the Noah conversation/issue this turn
+        // belongs to. Sent as X-Conversation-Id so noah-consumer can
+        // group every turn (and survive a device→user identity switch
+        // at purchase, which keeps the same session id). None for
+        // contexts without a session (e.g. one-off auth pings).
+        conversation_id: Option<&str>,
     ) -> Result<Response> {
         let body = ApiRequest {
             model: effective_model(),
@@ -723,12 +754,18 @@ impl LlmClient {
                 tokio::time::sleep(delay).await;
             }
 
-            let builder = self
+            let mut builder = self
                 .client
                 .post(self.api_url())
                 .header("anthropic-version", API_VERSION)
                 .header("content-type", "application/json")
-                .json(&body);
+                // Real conversation turn — the one call kind noah-consumer
+                // records. Carries the conversation id when we have one.
+                .header("x-noah-call-kind", "chat");
+            if let Some(cid) = conversation_id {
+                builder = builder.header("x-conversation-id", cid);
+            }
+            let builder = builder.json(&body);
             let resp = match self.apply_auth(builder).send().await {
                 Ok(r) => r,
                 Err(e) => {

@@ -69,7 +69,13 @@ function App() {
   // empty journal lands back on the 8-tile picker after sign-in,
   // which feels broken — they already onboarded.
   useEffect(() => {
-    commands.consumerEnsureDeviceId().catch(() => {});
+    // Ensure the device id exists, then fire the activation beacon so a
+    // device that opens the app (even if it never asks anything) is
+    // counted in the funnel. Best-effort; never blocks startup.
+    commands
+      .consumerEnsureDeviceId()
+      .then(() => commands.consumerNotifyAppOpen())
+      .catch(() => {});
     // Use a sentinel so an errored probe fails *open* (skip tiles).
     // Stranding the user on the gate is worse than skipping it once.
     Promise.all([

@@ -296,11 +296,9 @@ describe("Golden path — second-issue → subscribe → pay", () => {
     ).toBeTruthy();
 
     await user.click(screen.getByText("Wi-Fi or internet issues"));
-    const clarifier = await screen.findByRole("textbox");
-    await user.type(clarifier, "drops every 10 min at home");
-    await user.click(screen.getByText("Continue"));
 
-    // Seed auto-sends → second-issue modal pops in parallel.
+    // Picking a concrete tile diagnoses immediately — the tile title is
+    // the seed, no clarifier step. Seed auto-sends → second-issue modal.
     await waitFor(() => {
       expect(commands.sendMessageV2).toHaveBeenCalled();
     });
@@ -341,11 +339,6 @@ describe("Golden path — second-issue → subscribe → pay", () => {
 
     await screen.findByText(/What's going on with your Mac/);
     await user.click(screen.getByText("My Mac feels slow"));
-    await user.type(
-      await screen.findByRole("textbox"),
-      "Safari lags for ten seconds every new tab",
-    );
-    await user.click(screen.getByText("Continue"));
 
     await screen.findByText(/Keep Noah on your Mac/);
 
@@ -365,11 +358,6 @@ describe("Golden path — second-issue → subscribe → pay", () => {
 
     await screen.findByText(/What's going on with your Mac/);
     await user.click(screen.getByText("Battery drains fast"));
-    await user.type(
-      await screen.findByRole("textbox"),
-      "used to get 8h now I get 3",
-    );
-    await user.click(screen.getByText("Continue"));
 
     await screen.findByText(/Keep Noah on your Mac/);
 

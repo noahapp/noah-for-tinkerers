@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
-  ArrowLeft,
   BatteryLow,
   Cloud,
   Gauge,
@@ -44,26 +43,23 @@ const TILES: readonly Tile[] = [
 
 type Stage =
   | { name: "pick" }
-  | { name: "clarify"; tile: Tile }
   | { name: "signin"; tile: Tile | null; seedMessage: string | null };
 
 /**
  * First-run entry for users without a session. Shows a grid of eight
- * common Mac problems ("Pick One") and, once the user picks, collects
- * a short clarifier and routes into the magic-link sign-in. The
- * seed message (category + clarifier) is persisted to localStorage so
- * it survives the browser magic-link round-trip and seeds the first
- * chat turn on return.
+ * common Mac problems ("Pick One"). Picking a concrete tile goes
+ * STRAIGHT into the diagnosis — the tile IS the statement of intent, so
+ * we seed it as the first chat turn and let Noah ask for any specifics
+ * conversationally. (We used to route every pick through a full-screen
+ * clarifier textarea; even though typing was optional, the box read as
+ * "you must type" and bounced people on first run.) The "other" tile,
+ * which has no preset problem, opens the chat empty so the user can
+ * describe it there. No sign-in required; the device's anonymous trial
+ * starts when the server sees /events/issue-started.
  */
 export function TilePickerScreen({ onComplete }: TilePickerScreenProps) {
   const { t } = useLocale();
   const [stage, setStage] = useState<Stage>({ name: "pick" });
-  const [clarifier, setClarifier] = useState("");
-
-  const goClarify = useCallback((tile: Tile) => {
-    setClarifier("");
-    setStage({ name: "clarify", tile });
-  }, []);
 
   const goPick = useCallback(() => {
     setStage({ name: "pick" });
@@ -74,23 +70,25 @@ export function TilePickerScreen({ onComplete }: TilePickerScreenProps) {
     setStage({ name: "signin", tile: null, seedMessage: null });
   }, []);
 
-  const finishWithSeed = useCallback(
-    (tile: Tile, clarifier: string) => {
-      const message = composeSeedMessage(tile.id, t(tile.titleKey), clarifier);
-      // Stash the seed to localStorage — ChatPanel picks it up on its
-      // first-fresh-session effect and auto-sends it as the first
-      // chat turn. No sign-in required; the device's anonymous trial
-      // starts when the server sees /events/issue-started.
+  const handlePick = useCallback(
+    (tile: Tile) => {
+      // "Other" has no preset problem — open the chat empty and let the
+      // user describe it there (Noah's empty state prompts "tell me
+      // what's wrong"). No forced textarea.
+      if (tile.id === "other") {
+        onComplete();
+        return;
+      }
+      // Concrete problem → diagnose immediately. Seed the tile's title as
+      // the first turn; ChatPanel auto-sends it on the first fresh session.
+      const message = composeSeedMessage(tile.id, t(tile.titleKey), "");
       try {
         localStorage.setItem(
           "noah.pendingSeed",
-          JSON.stringify({
-            message,
-            expiresAt: Date.now() + 60 * 60 * 1000,
-          }),
+          JSON.stringify({ message, expiresAt: Date.now() + 60 * 60 * 1000 }),
         );
       } catch {
-        // localStorage disabled — the user will type manually, fine.
+        // localStorage disabled — user can type in chat instead, fine.
       }
       onComplete();
     },
@@ -107,20 +105,7 @@ export function TilePickerScreen({ onComplete }: TilePickerScreenProps) {
     );
   }
 
-  if (stage.name === "clarify") {
-    const { tile } = stage;
-    return (
-      <ClarifyStage
-        tile={tile}
-        value={clarifier}
-        onChange={setClarifier}
-        onBack={goPick}
-        onContinue={(text) => finishWithSeed(tile, text)}
-      />
-    );
-  }
-
-  return <PickStage onPick={goClarify} onSignInClick={goSignInBlank} />;
+  return <PickStage onPick={handlePick} onSignInClick={goSignInBlank} />;
 }
 
 // ── Pick stage ────────────────────────────────────────────────────────────
@@ -243,92 +228,6 @@ function PickStage({
               </button>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Clarify stage ─────────────────────────────────────────────────────────
-
-function ClarifyStage({
-  tile,
-  value,
-  onChange,
-  onBack,
-  onContinue,
-}: {
-  tile: Tile;
-  value: string;
-  onChange: (v: string) => void;
-  onBack: () => void;
-  onContinue: (text: string) => void;
-}) {
-  const { t } = useLocale();
-  // The clarifier is OPTIONAL — picking a tile is already a complete
-  // statement of intent. The button label reflects whether the user
-  // added detail: "Continue" with text, "Diagnose now" without.
-  const hasDetail = value.trim().length > 0;
-  const { Icon } = tile;
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-bg-primary px-6 py-10">
-      <div className="w-full max-w-xl">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-secondary mb-6"
-        >
-          <ArrowLeft size={13} strokeWidth={2} />
-          {t("onboarding.backLabel")}
-        </button>
-
-        <div className="flex items-center gap-3 mb-6">
-          <span
-            className="flex items-center justify-center w-11 h-11 rounded-xl"
-            style={{
-              background: "var(--color-accent-blue-soft)",
-              color: "var(--color-accent-indigo)",
-              border: "1px solid var(--color-accent-border)",
-            }}
-            aria-hidden
-          >
-            <Icon size={22} strokeWidth={1.75} />
-          </span>
-          <h2 className="text-lg font-semibold text-text-primary">
-            {t(tile.titleKey)}
-          </h2>
-        </div>
-
-        <textarea
-          autoFocus
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              onContinue(value.trim());
-            }
-          }}
-          placeholder={t(tile.hintKey)}
-          rows={4}
-          className="w-full px-4 py-3 rounded-xl bg-bg-input border border-border-primary text-base text-text-primary placeholder-text-muted outline-none focus:border-border-focus transition-colors resize-none"
-        />
-        <p className="mt-2 text-[11.5px] text-text-muted">
-          {t("onboarding.clarifierOptional")}
-        </p>
-
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={onBack}
-            className="px-4 py-2 rounded-xl text-sm text-text-secondary hover:text-text-primary transition-colors"
-          >
-            {t("onboarding.backLabel")}
-          </button>
-          <button
-            onClick={() => onContinue(value.trim())}
-            className="btn-launch flex-1 py-2 rounded-xl text-sm font-medium cursor-pointer"
-          >
-            {hasDetail ? t("onboarding.continue") : t("onboarding.diagnoseNow")}
-          </button>
         </div>
       </div>
     </div>

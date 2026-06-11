@@ -722,6 +722,7 @@ pub fn run() {
             commands::consumer::consumer_complete_sign_in,
             commands::consumer::consumer_sign_out,
             commands::consumer::consumer_get_entitlement,
+            commands::consumer::consumer_notify_app_open,
             commands::consumer::consumer_notify_issue_started,
             commands::consumer::consumer_notify_fix_completed,
             commands::consumer::consumer_billing_checkout_url,
