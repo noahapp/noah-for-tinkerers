@@ -16,6 +16,8 @@ import { ProactiveSuggestionBanner } from "./components/ProactiveSuggestionBanne
 import { SessionSummary } from "./components/SessionSummary";
 import { useSessionStore } from "./stores/sessionStore";
 import { TilePickerScreen } from "./components/TilePickerScreen";
+import { OnboardingFlow } from "./components/OnboardingFlow";
+import { flags } from "./lib/flags";
 import { SubscribeModal } from "./components/SubscribeModal";
 import { TrialEmailNudge } from "./components/TrialEmailNudge";
 import { useDebugStore, type DebugEvent } from "./stores/debugStore";
@@ -157,6 +159,13 @@ function App() {
   // both fresh users (pick a problem → sign in) and returning users
   // (tap "Already have an account? Sign in").
   if (needsSetup) {
+    // Flag-gated scan-reveal onboarding (the placement-A/B paywall). Default
+    // OFF — runtime is the existing TilePicker until the flag is flipped and
+    // real diagnostics + the sign-in handoff are wired into OnboardingFlow's
+    // onComplete. See noah-consumer/designs/onboarding/SPEC.md.
+    if (flags.scanRevealOnboarding()) {
+      return <OnboardingFlow onComplete={() => setNeedsSetup(false)} />;
+    }
     return <TilePickerScreen onComplete={() => setNeedsSetup(false)} />;
   }
 
