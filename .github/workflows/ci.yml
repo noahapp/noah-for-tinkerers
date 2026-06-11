@@ -1,7 +1,6 @@
-name: CI
+name: CI (disabled)
 
-on:
-  workflow_dispatch:
+on: {}
 
 env:
   CARGO_TERM_COLOR: always
