@@ -13,7 +13,7 @@ Noah is a **command-and-control surface**. The user has a broken Mac and is aimi
 Practical implications:
 - The composer is the gateway. It should feel like a **launch button at all times**, not just on focus. The `.composer-launch` utility carries a quiet always-on aurora-tinted border + soft indigo glow at rest, intensifying to the full focus ring on `:focus-within`. Generic `.aurora-focus` (which is invisible at rest) is for everything else — inputs, cards — *not* the composer itself.
 - The send action gets the most prominent treatment in the entire UI. Bigger than any other button.
-- Headlines and placeholder copy use **directive verbs**, not greetings. The Welcome empty state is "Tell me what's wrong. I'll handle the rest." (line 2 in `aurora-text`). Composer placeholder is "What's broken? Tell Noah and hit go." Subscribe headline is a directive question, never a generic "Welcome back."
+- Headlines and placeholder copy use **directive verbs**, not greetings. The Welcome empty state is "Tell me what's wrong. I'll handle the rest." (line 2 in `aurora-text`). Composer placeholder is "What's broken? Tell Noah and hit go." API-key setup copy should stay direct and task-focused.
 - The agent is something you *direct*, not something you *converse with*. Copy and visuals should never lapse into chat-app passivity.
 
 What this rules out:
@@ -28,12 +28,12 @@ What this rules out:
 Every accent color in the app comes from a single hue family. Within that family there are exactly **two registers** — distinct enough to communicate different intent, related enough to feel unified.
 
 **Register A — "Launch" (aurora gradient, sky-blue → indigo → violet):**
-The act of aiming Noah at a problem. Sending a message. Clicking "Please fix it." Approving an action. Subscribing (yes — both Subscribe and Send live in Launch; subscribing is a launch *toward* a relationship, not a commit-of-completion). Hovering "New chat." Focus rings. Thinking-state animations. Any moment where the user is *issuing a command*.
+The act of aiming Noah at a problem. Sending a message. Clicking "Please fix it." Approving an action. Saving the API key. Hovering "New chat." Focus rings. Thinking-state animations. Any moment where the user is *issuing a command*.
 
-Tokens: `--aurora` (gradient), `--aurora-soft` (10–16% wash), `--aurora-glow` / `--aurora-glow-hover`, `--color-accent-blue` / `--color-accent-indigo` / `--color-accent-violet`. Class shortcuts: `.btn-launch`, `.btn-commit` (premium launch — Subscribe/Extend), `.aurora-focus`, `.composer-launch`, `.aurora-text`.
+Tokens: `--aurora` (gradient), `--aurora-soft` (10–16% wash), `--aurora-glow` / `--aurora-glow-hover`, `--color-accent-blue` / `--color-accent-indigo` / `--color-accent-violet`. Class shortcuts: `.btn-launch`, `.btn-commit` (major state-change actions), `.aurora-focus`, `.composer-launch`, `.aurora-text`.
 
 **Register B — "Commit" (aurora-teal):**
-A different kind of click — *confirming a completion that already happened*. The "Sent" pill that replaces a Submit button. The check next to a finished tool-call. A "Result" eyebrow on a fix-summary card. Status dots showing "trialing" / "active." Never a CTA — only a confirmation.
+A different kind of click — *confirming a completion that already happened*. The "Sent" pill that replaces a Submit button. The check next to a finished tool-call. A "Result" eyebrow on a fix-summary card. Status dots showing "ready" / "working." Never a CTA — only a confirmation.
 
 Tokens: `--color-accent-green` (`#14b8a6` dark / `#0d9488` light — aurora-teal, NOT grass green; replaces the legacy `#34d399`). Class shortcut: `.btn-done`, `.eyebrow.commit`.
 
@@ -44,7 +44,7 @@ Both registers must:
 What this rules out:
 - A different brand color for every kind of click.
 - Bootstrap-y "primary blue, success green, danger red" with no relationship between them.
-- Using the launch register for commit moments OR vice versa. "Subscribe" is launch (forward intent), not commit. "Sent" / "Fixed" is commit (already-completed), not launch. The legacy iOS-green `#34c759` and grass-green `#34d399` are gone — anywhere those still appear is unfinished migration.
+- Using the launch register for commit moments OR vice versa. "Save key" and "Install update" are launch-like state changes. "Sent" / "Fixed" is commit (already-completed), not launch. The legacy iOS-green `#34c759` and grass-green `#34d399` are gone — anywhere those still appear is unfinished migration.
 
 ---
 
@@ -90,7 +90,7 @@ The audience is a stressed Mac user whose computer is broken. They are not delig
 - **Larger body text** than a typical SaaS dashboard. We use 17px root, which makes Tailwind's `text-base` 17px and `text-sm` ~15px. Not because it's prettier — because someone reading at low display brightness, possibly older, possibly stressed, can read it without squinting.
 - **Generous line-height** (1.55–1.65).
 - **Clear typographic hierarchy via weight, not size jumps.** Section headers are bold-600 at the same size as body. Headlines step up only slightly.
-- **Plain language** in copy. "Trial ends Thu, May 8" beats "24h remaining."
+- **Plain language** in copy. "Update ready" beats "artifact available."
 
 What this rules out:
 - Decorative micro-illustrations of robots, gears, sparkles.
@@ -183,8 +183,8 @@ These are the reusable primitives shipped in `index.css`. New surfaces should co
 
 | Class | Purpose | When to use |
 |---|---|---|
-| `.btn-launch` | Aurora-gradient button — the launch register. | Composer send, "Please fix it," primary CTAs that aim Noah at a problem (Continue on the clarify stage, Connect on setup, Send link on sign-in, Approve action). |
-| `.btn-commit` | Premium aurora-gradient with specular highlight. | Subscribe, Extend trial. The "bigger Noah moment" — same identity as launch, more depth. |
+| `.btn-launch` | Aurora-gradient button — the launch register. | Composer send, "Please fix it," primary CTAs that aim Noah at a problem (Continue on setup, Save key, Approve action). |
+| `.btn-commit` | Stronger aurora-gradient button with specular highlight. | Save API key, install update, confirm a major state change. Same identity as launch, more depth. |
 | `.btn-action` | Solid aurora-blue with hover glow. | Submit button inside an in-card answer surface. Less prominent than `.btn-launch`. |
 | `.btn-done` | Commit-teal pill with check glyph. | Replaces a submit button after the action is taken ("Sent" / "Resolved"). |
 | `.aurora-focus` | Invisible at rest; aurora ring on `:focus-within`. | Generic inputs and focusable cards. Not for the composer (use `.composer-launch`). |
@@ -201,7 +201,7 @@ These are the reusable primitives shipped in `index.css`. New surfaces should co
 
 Honest list of surfaces where the system has gaps. Solving these needs designer time, not just engineer time.
 
-- **Mid-conversation chat surfaces.** The handoff covered onboarding → first fix → subscribe. It did not cover what a 5-minute-deep conversation looks like. Tool-call cards, ambient activity log, and the assistant-bubble identity are all under-specified.
+- **Mid-conversation chat surfaces.** The handoff covered onboarding → first fix. It did not cover what a 5-minute-deep conversation looks like. Tool-call cards, ambient activity log, and the assistant-bubble identity are all under-specified.
 - **Chat-bubble polarity.** User vs. assistant bubbles are currently differentiated only by background. The Brand Guide's two-loops metaphor (warm = user, cool = Noah) suggests a richer treatment that isn't built.
 - **Sidebar density and identity.** Active session row, hover, drag, drop — none have an aurora response. Today the sidebar is a list of files with one aurora button at the top.
 - **Light mode as its own system.** See Principle 9. Today it's dark-mode-with-tokens-flipped, not a designed light experience.

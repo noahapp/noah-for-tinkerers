@@ -46,7 +46,7 @@ const TILES: readonly Tile[] = [
  * the tile IS the statement of intent, so we seed it as the first chat turn
  * and let Noah ask for any specifics conversationally. The "other" tile,
  * which has no preset problem, opens the chat empty so the user can describe
- * it there. No sign-in required.
+ * it there. No account required.
  */
 export function TilePickerScreen({ onComplete }: TilePickerScreenProps) {
   const { t } = useLocale();
@@ -96,7 +96,7 @@ function PickStage({
   return (
     <div
       // Layered scroll: outer fixes the aurora wash + drag region to
-      // the viewport, inner scrolls so the sign-in link is reachable
+      // the viewport, inner scrolls so the content is reachable
       // on shorter windows (≤ ~720px tall) instead of being silently
       // clipped below the fold. At the default window size everything
       // still fits without a scrollbar.

@@ -18,6 +18,7 @@ permissions:
 jobs:
   build:
     strategy:
+      max-parallel: 1
       matrix:
         include:
           - os: windows-latest

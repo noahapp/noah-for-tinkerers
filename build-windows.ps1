@@ -38,7 +38,13 @@ if (Test-Path $pnpmHome) { $env:PATH = "$pnpmHome;$env:PATH" }
 $keyFile = Join-Path $env:USERPROFILE ".tauri\noah.key"
 if (Test-Path $keyFile) {
     $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content $keyFile -Raw
-    $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "searchformeaning"
+    $passwordFile = Join-Path $env:USERPROFILE ".tauri\noah.key.password"
+    if (-not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD -and (Test-Path $passwordFile)) {
+        $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = (Get-Content $passwordFile -Raw).Trim()
+    }
+    if (-not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) {
+        Write-Host "WARNING: TAURI_SIGNING_PRIVATE_KEY_PASSWORD not set; signed updater builds may fail." -ForegroundColor Yellow
+    }
 } else {
     Write-Host "WARNING: Signing key not found at $keyFile" -ForegroundColor Yellow
 }

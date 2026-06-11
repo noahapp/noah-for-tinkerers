@@ -45,10 +45,12 @@ describe("i18n locale resolution", () => {
     setNavigatorLanguage("es-MX");
     const i18n = await loadI18n();
 
-    // Pick a key that's English-only — `signIn.welcomeTitle` is not in
+    // Pick a key that's English-only — `chat.learnPlaceholder` is not in
     // es.json today, so the fallback path is exercised. Update this
     // assertion if/when the key gets translated.
-    expect(i18n.t("signIn.welcomeTitle")).toBe("Sign in to Noah");
+    expect(i18n.t("chat.learnPlaceholder")).toBe(
+      "Paste a link to a guide, or type what you'd like me to know...",
+    );
   });
 
   it("exposes Spanish as a selectable language option", async () => {

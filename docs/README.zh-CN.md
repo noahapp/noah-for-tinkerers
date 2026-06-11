@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="../LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
 </p>
 
 <p align="center">
@@ -80,7 +80,7 @@ Noah使用Claude（Anthropic出品）来分析问题。你需要一个API密钥�
 
 ## 许可证
 
-MIT
+AGPL-3.0
 
 ---
 

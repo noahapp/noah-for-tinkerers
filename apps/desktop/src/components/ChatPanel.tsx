@@ -1696,7 +1696,7 @@ export function ChatPanel() {
   // Pending seed message: set by TilePickerScreen when the user picks a
   // problem on first run, so their chosen category becomes the first chat
   // turn. We consume it exactly once, on the first fresh session the user
-  // lands on after sign-in.
+  // lands on after the picker.
   useEffect(() => {
     if (!sessionId || isProcessing) return;
     const empty =

@@ -45,7 +45,7 @@ function App() {
   // First-launch gate (BYOK): show the TilePicker problem-picker only when
   // the user has no prior chat history. It's a friendly "pick a problem"
   // entry point that seeds the first chat turn — it does NOT gate access
-  // and never asks the user to sign in. Any prior session → straight to
+  // and never asks the user for an account. Any prior session → straight to
   // the app. A failed probe fails *open* (skip the picker) so nobody is
   // stranded on the gate.
   useEffect(() => {

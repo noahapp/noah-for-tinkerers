@@ -3,12 +3,12 @@
 Status: accepted, 2026-06-09. Owner: Eric.
 
 This is the durable decision record behind Noah's redline system. It exists
-because a real session nearly (and maybe actually) destroyed a paying user's
+because a real session nearly (and maybe actually) destroyed a user's
 data. Read the incident first — the policy only makes sense as a response to it.
 
 ## The incident
 
-A trialing-then-paying user asked (one sentence, three intents):
+A user asked (one sentence, three intents):
 
 > "My mac is running slow **and I want my storage pushed to Google Drive
 > using the folder in finder** and my mac is slow please improve this **and i
@@ -239,9 +239,8 @@ action_event {
 
 v1 emits this locally (frontend debug channel + stderr) and records the
 approval/denial decision — closing the "we only saw the proposed command"
-blindness. Backend forwarding (`/events/action` on noah-consumer) and binding
-`paths_touched` into the undo journal are the next slice; they reuse the
-existing `consumer/client.rs` event channel and `safety::journal`.
+blindness. Binding `paths_touched` into the undo journal is the next slice; it
+reuses `safety::journal`.
 
 ## Honoring intent (playbook layer)
 

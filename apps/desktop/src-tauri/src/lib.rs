@@ -54,9 +54,11 @@ pub struct AppState {
 // TODO(byok-ux): let users set the API key from Settings with good ergonomics,
 // not by hand-editing api_key.txt
 fn load_auth(app_dir: &std::path::Path) -> AuthMode {
-    // Legacy proxy.json / session.txt are no longer used; clean them up if
+    // Legacy hosted-auth files are no longer used; clean them up if
     // present so old installs don't carry stale tokens.
     let _ = std::fs::remove_file(app_dir.join("proxy.json"));
+    let _ = std::fs::remove_file(app_dir.join("session.txt"));
+    let _ = std::fs::remove_file(app_dir.join("entitlement_cache.json"));
 
     let key_path = app_dir.join("api_key.txt");
     if let Ok(contents) = std::fs::read_to_string(&key_path) {
@@ -75,8 +77,10 @@ fn load_auth(app_dir: &std::path::Path) -> AuthMode {
 pub fn save_api_key(app_dir: &std::path::Path, key: &str) -> Result<(), String> {
     let key_path = app_dir.join("api_key.txt");
     std::fs::write(&key_path, key).map_err(|e| format!("Failed to save API key: {}", e))?;
-    // Remove any legacy proxy config left over from older builds.
+    // Remove any legacy hosted-auth config left over from older builds.
     let _ = std::fs::remove_file(app_dir.join("proxy.json"));
+    let _ = std::fs::remove_file(app_dir.join("session.txt"));
+    let _ = std::fs::remove_file(app_dir.join("entitlement_cache.json"));
     Ok(())
 }
 
@@ -372,7 +376,7 @@ pub fn run() {
             });
 
             // Proactive health monitor + auto-heal + background scanners:
-            // all disabled in v1 consumer build to keep the surface clean.
+            // disabled in the BYOK build to keep the surface clean.
             // The Settings toggles for these were removed too. Re-enable
             // by wrapping the scanner spawn in a feature flag when we surface
             // these in the UI again.

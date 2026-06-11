@@ -29,8 +29,7 @@
     "greeting": "Hola, soy Noah. ¿Qué le pasa a tu computadora?",
     "subgreeting": "Elige lo más parecido — me puedes contar más en un momento.",
     "backLabel": "Volver",
-    "continue": "Continuar",
-    "alreadyHaveAccount": "¿Ya tienes cuenta? Inicia sesión"
+    "continue": "Continuar"
   },
   "sidebar": {
     "newChat": "Nuevo chat",
@@ -41,19 +40,12 @@
   },
   "settings": {
     "title": "Configuración",
-    "connection": "Conexión",
+    "eyebrow": "Tu Noah",
+    "subtitle": "Clave API, privacidad, apariencia y ayuda.",
     "apiKey": "Clave API",
-    "connectedViaProxy": "Conectado por Noah Beta (código de invitación).",
-    "inviteExpired": "Tu código de invitación ha expirado.",
-    "inviteCode": "Código de invitación",
-    "requestRenewal": "Solicitar renovación en Discord →",
-    "switchPrompt": "¿Quieres usar tu propia clave API de Anthropic?",
-    "replaceKeyPrompt": "Ingresa una nueva clave API de Anthropic para reemplazar la actual.",
     "errorApiKeyInvalid": "No parece una clave API de Anthropic. Debe comenzar con sk-ant-",
     "saving": "Guardando...",
     "saved": "¡Guardado!",
-    "switchToOwnKey": "Cambiar a mi clave API",
-    "updateApiKey": "Actualizar clave API",
     "proactiveSuggestions": "Sugerencias proactivas",
     "notifyIssues": "Notificarme posibles problemas",
     "proactiveDesc": "Noah revisará tu sistema periódicamente y te avisará si algo necesita atención. Como máximo una vez al día.",

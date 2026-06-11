@@ -13,7 +13,15 @@ const IS_MAC = process.platform === "darwin";
 const BUNDLE_DIR = IS_MAC
   ? path.join(ROOT, "target", "universal-apple-darwin", "release", "bundle")
   : path.join(ROOT, "target", "release", "bundle");
-const REPO = "xuy/noah";
+const RELEASE_REPO = process.env.NOAH_RELEASE_REPO ?? "xuy/noah";
+const UPDATE_CHANNEL = process.env.NOAH_UPDATE_CHANNEL ?? "byok";
+const UPDATE_BASE_URL =
+  process.env.NOAH_UPDATE_BASE_URL ?? `https://onnoah.app/${UPDATE_CHANNEL}/download`;
+const R2_BUCKET = process.env.NOAH_R2_BUCKET ?? "noah-downloads";
+const LATEST_JSON_ASSET = `${UPDATE_CHANNEL}-latest.json`;
+// Public BYOK releases must not overwrite the main website's stable
+// /download assets. They only mirror into the channel-specific R2 prefix.
+const MIRROR_STABLE_INSTALLERS = process.env.NOAH_MIRROR_STABLE_INSTALLERS === "1";
 
 function usage() {
   console.log(`Usage:
@@ -154,10 +162,28 @@ const UPDATER_PLATFORM_MAP = {
   "linux-x64": "linux-x86_64",
 };
 
+function updaterDownloadUrl(tag, fileName) {
+  const params = new URLSearchParams({ tag, file: fileName });
+  return `${UPDATE_BASE_URL}?${params.toString()}`;
+}
+
+function contentTypeFor(fileName) {
+  if (fileName.endsWith(".json")) return "application/json; charset=utf-8";
+  if (fileName.endsWith(".dmg")) return "application/x-apple-diskimage";
+  return "application/octet-stream";
+}
+
+async function uploadR2Object(localPath, key, contentType = contentTypeFor(path.basename(localPath))) {
+  await runCommand("npx", [
+    "wrangler", "r2", "object", "put", `${R2_BUCKET}/${key}`,
+    `--file=${localPath}`, `--content-type=${contentType}`, "--remote",
+  ]);
+}
+
 async function generateLatestJson(version, tag, artifacts) {
   const target = UPDATER_PLATFORM_MAP[`${process.platform}-${process.arch}`];
   if (!target) {
-    console.log(`==> Skipping latest.json — unknown platform: ${process.platform}-${process.arch}`);
+    console.log(`==> Skipping ${LATEST_JSON_ASSET} — unknown platform: ${process.platform}-${process.arch}`);
     return null;
   }
 
@@ -183,31 +209,37 @@ async function generateLatestJson(version, tag, artifacts) {
   }
 
   if (!updaterFile || !sigFile) {
-    console.log(`==> Skipping latest.json — missing updater artifact or signature`);
+    console.log(`==> Skipping ${LATEST_JSON_ASSET} — missing updater artifact or signature`);
     console.log(`    updaterFile: ${updaterFile}, sigFile: ${sigFile}`);
     return null;
   }
 
   const signature = (await readFile(sigFile, "utf8")).trim();
-  const url = `https://github.com/${REPO}/releases/download/${tag}/${updaterFile}`;
+  const url = updaterDownloadUrl(tag, updaterFile);
 
-  // Download existing latest.json from GitHub release to merge platforms from multiple builds
-  const latestPath = path.join(ROOT, "latest.json");
+  // Download existing channel metadata from the GitHub release to merge
+  // platforms from serialized matrix builds. Do not use the asset name
+  // "latest.json" here: legacy installs may still poll that legacy
+  // xuy/noah release URL.
+  const latestPath = path.join(ROOT, LATEST_JSON_ASSET);
   let existing = { version, pub_date: new Date().toISOString(), platforms: {} };
   try {
     const tmpDir = path.join(tmpdir(), `noah-release-${Date.now()}`);
-    await runCommand("gh", ["release", "download", tag, "--pattern", "latest.json", "-D", tmpDir]);
-    const tmpLatest = path.join(tmpDir, "latest.json");
+    await runCommand("gh", [
+      "release", "download", tag, "--repo", RELEASE_REPO,
+      "--pattern", LATEST_JSON_ASSET, "-D", tmpDir,
+    ]);
+    const tmpLatest = path.join(tmpDir, LATEST_JSON_ASSET);
     if (existsSync(tmpLatest)) {
       const prev = JSON.parse(await readFile(tmpLatest, "utf8"));
       if (prev.platforms) {
         existing.platforms = prev.platforms;
       }
       await rm(tmpDir, { recursive: true });
-      console.log("    Merged platforms from existing latest.json in release");
+      console.log(`    Merged platforms from existing ${LATEST_JSON_ASSET} in release`);
     }
   } catch {
-    console.log("    No existing latest.json in release — starting fresh");
+    console.log(`    No existing ${LATEST_JSON_ASSET} in release — starting fresh`);
   }
 
   existing.version = version;
@@ -217,10 +249,10 @@ async function generateLatestJson(version, tag, artifacts) {
   if (IS_MAC) {
     existing.platforms["darwin-aarch64"] = { url, signature };
     existing.platforms["darwin-x86_64"] = { url, signature };
-    console.log(`==> Generated latest.json with platforms darwin-aarch64 + darwin-x86_64 (universal)`);
+    console.log(`==> Generated ${LATEST_JSON_ASSET} with platforms darwin-aarch64 + darwin-x86_64 (universal)`);
   } else {
     existing.platforms[target] = { url, signature };
-    console.log(`==> Generated latest.json with platform ${target}`);
+    console.log(`==> Generated ${LATEST_JSON_ASSET} with platform ${target}`);
   }
 
   await writeFile(latestPath, JSON.stringify(existing, null, 2) + "\n");
@@ -305,26 +337,29 @@ async function main() {
     throw new Error("Missing required command: gh");
   }
 
-  // Generate latest.json for the Tauri updater
+  // Generate channel-specific updater metadata for Tauri.
   const latestJsonPath = await generateLatestJson(version, tag, artifacts);
 
-  console.log(`==> Uploading to GitHub release ${tag}...`);
+  console.log(`==> Uploading to GitHub release ${RELEASE_REPO} ${tag}...`);
   let releaseExists = true;
   try {
-    await runCommand("gh", ["release", "view", tag]);
+    await runCommand("gh", ["release", "view", tag, "--repo", RELEASE_REPO]);
   } catch {
     releaseExists = false;
   }
 
   if (!releaseExists) {
-    await runCommand("gh", ["release", "create", tag, "--title", `Noah ${tag}`, "--generate-notes"]);
+    await runCommand("gh", [
+      "release", "create", tag, "--repo", RELEASE_REPO,
+      "--title", `Noah ${tag}`, "--generate-notes",
+    ]);
   }
 
   const toUpload = [...artifacts];
   if (latestJsonPath) toUpload.push(latestJsonPath);
 
-  // Create stable-named copies so download URLs don't change between releases.
-  // e.g. https://github.com/xuy/noah/releases/latest/download/Noah.dmg always works.
+  // Create stable-named copies for GitHub release convenience. These do not
+  // drive the BYOK updater; updater URLs point at versioned onnoah.app R2 keys.
   const STABLE_NAMES = {
     ".dmg": "Noah.dmg",
     "-setup.exe": "Noah-setup.exe",
@@ -346,33 +381,53 @@ async function main() {
   }
   toUpload.push(...stableCopies);
 
-  await runCommand("gh", ["release", "upload", tag, ...toUpload, "--clobber"]);
-  await runCommand("gh", ["release", "view", tag, "--json", "url", "-q", ".url"]);
+  await runCommand("gh", [
+    "release", "upload", tag, ...toUpload,
+    "--repo", RELEASE_REPO, "--clobber",
+  ]);
+  await runCommand("gh", [
+    "release", "view", tag, "--repo", RELEASE_REPO, "--json", "url", "-q", ".url",
+  ]);
 
-  // Mirror the stable installers to Cloudflare R2 so onnoah.app/download/X
-  // serves them directly (self-hosted, every request tracked) instead of
-  // redirecting to GitHub. Best-effort: an R2 hiccup must never fail a
-  // release — the download functions fall back to GitHub on any R2 miss.
-  //
-  // Only artifacts built on THIS machine are present (the Mac .dmg here).
-  // Windows/Linux installers are produced by CI and mirrored afterwards
-  // with `node scripts/r2-sync.mjs` once that CI completes.
-  const R2_CONTENT_TYPE = { "Noah.dmg": "application/x-apple-diskimage" };
-  for (const stablePath of stableCopies) {
-    const key = path.basename(stablePath);
-    const ct = R2_CONTENT_TYPE[key] ?? "application/octet-stream";
+  // Mirror versioned artifacts and channel metadata to Cloudflare R2 so
+  // https://onnoah.app/byok/latest.json can serve public BYOK updates
+  // without touching the legacy GitHub latest.json channel.
+  for (const artifact of artifacts) {
+    const key = `${UPDATE_CHANNEL}/${tag}/${path.basename(artifact)}`;
     try {
-      await runCommand("npx", [
-        "wrangler", "r2", "object", "put", `noah-downloads/${key}`,
-        `--file=${stablePath}`, `--content-type=${ct}`, "--remote",
-      ]);
-      console.log(`    R2: ${key} → noah-downloads`);
+      await uploadR2Object(artifact, key);
+      console.log(`    R2: ${key} → ${R2_BUCKET}`);
     } catch (e) {
-      console.log(`    R2 upload skipped for ${key} (${e.message}) — GitHub fallback still serves it`);
+      console.log(`    R2 upload skipped for ${key} (${e.message})`);
     }
   }
 
-  // Clean up local latest.json
+  if (latestJsonPath) {
+    try {
+      await uploadR2Object(
+        latestJsonPath,
+        `${UPDATE_CHANNEL}/latest.json`,
+        "application/json; charset=utf-8",
+      );
+      console.log(`    R2: ${UPDATE_CHANNEL}/latest.json → ${R2_BUCKET}`);
+    } catch (e) {
+      console.log(`    R2 upload skipped for ${UPDATE_CHANNEL}/latest.json (${e.message})`);
+    }
+  }
+
+  if (MIRROR_STABLE_INSTALLERS) {
+    for (const stablePath of stableCopies) {
+      const key = path.basename(stablePath);
+      try {
+        await uploadR2Object(stablePath, key);
+        console.log(`    R2: ${key} → ${R2_BUCKET}`);
+      } catch (e) {
+        console.log(`    R2 upload skipped for ${key} (${e.message})`);
+      }
+    }
+  }
+
+  // Clean up local channel metadata.
   if (latestJsonPath && existsSync(latestJsonPath)) {
     await rm(latestJsonPath);
   }

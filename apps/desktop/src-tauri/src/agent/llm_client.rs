@@ -198,48 +198,24 @@ fn strip_markdown_fences(s: &str) -> String {
 fn friendly_api_error(status: reqwest::StatusCode, body: &str) -> String {
     match status.as_u16() {
         401 => {
-            // Check if the proxy returned a structured expiry response.
-            if let Ok(parsed) = serde_json::from_str::<Value>(body) {
-                if parsed.get("reason").and_then(|v| v.as_str()) == Some("token_expired") {
-                    let invite_code = parsed.get("invite_code").and_then(|v| v.as_str()).unwrap_or("unknown");
-                    return format!(
-                        "Your invite code ({}) has expired. Request a renewal at http://noah.app/discord or enter your own API key in Settings.",
-                        invite_code
-                    );
-                }
-            }
-            "401 · Your session has expired. Please sign in again.".to_string()
+            "401 · Anthropic rejected your API key. Check the key in Settings.".to_string()
         }
         402 => {
-            "402 · Your trial has ended. Subscribe in Settings to keep fixing issues.".to_string()
+            "402 · Anthropic billing is required for this API key. Check your Anthropic Console."
+                .to_string()
         }
         502 => {
-            // Distinguish the specific case where noah-consumer tells us
-            // Anthropic rejected *its* API key (server-side config issue,
-            // not the user's session).
-            if let Ok(parsed) = serde_json::from_str::<Value>(body) {
-                if parsed.get("detail").and_then(|v| v.as_str())
-                    == Some("anthropic_rejected_server_key")
-                {
-                    return "502 · Noah's server can't reach Claude right now (API key issue on our end). Try again in a moment.".to_string();
-                }
-            }
-            "502 · Noah's server had a hiccup reaching Claude. Please try again.".to_string()
+            "502 · Claude is temporarily unavailable through Anthropic. Please try again."
+                .to_string()
         }
         403 => {
             "403 · Your API key doesn't have permission for this request. Check your Anthropic account."
                 .to_string()
         }
         429 => {
-            // Distinguish consumer-proxy usage cap from Anthropic rate-limit.
-            if let Ok(parsed) = serde_json::from_str::<Value>(body) {
-                if parsed.get("error").and_then(|v| v.as_str()) == Some("usage_cap") {
-                    return "429 · You've reached this month's fair-use limit. Resets next period.".to_string();
-                }
-            }
             "429 · Too many requests — Claude is rate-limited. Wait a moment and try again.".to_string()
         }
-        500 | 502 | 503 => {
+        500 | 503 => {
             "Claude is having temporary issues. Please try again in a minute.".to_string()
         }
         529 => "Claude is currently overloaded. Please try again in a few minutes.".to_string(),
@@ -369,11 +345,6 @@ impl LlmClient {
             .post(self.api_url())
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
-            // Metadata side-call (title / summary / diagnostic / triage) —
-            // NOT a conversation turn. noah-consumer skips telemetry
-            // capture for any x-noah-call-kind other than "chat", so these
-            // never get recorded as something the user or Noah "said".
-            .header("x-noah-call-kind", "meta")
             .json(&body);
         let resp = self
             .apply_auth(builder)
@@ -422,11 +393,6 @@ impl LlmClient {
             .post(self.api_url())
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
-            // Metadata side-call (title / summary / diagnostic / triage) —
-            // NOT a conversation turn. noah-consumer skips telemetry
-            // capture for any x-noah-call-kind other than "chat", so these
-            // never get recorded as something the user or Noah "said".
-            .header("x-noah-call-kind", "meta")
             .json(&body);
         let resp = self
             .apply_auth(builder)
@@ -501,11 +467,6 @@ impl LlmClient {
             .post(self.api_url())
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
-            // Metadata side-call (title / summary / diagnostic / triage) —
-            // NOT a conversation turn. noah-consumer skips telemetry
-            // capture for any x-noah-call-kind other than "chat", so these
-            // never get recorded as something the user or Noah "said".
-            .header("x-noah-call-kind", "meta")
             .json(&body);
         let resp = self
             .apply_auth(builder)
@@ -571,11 +532,6 @@ impl LlmClient {
             .post(self.api_url())
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
-            // Metadata side-call (title / summary / diagnostic / triage) —
-            // NOT a conversation turn. noah-consumer skips telemetry
-            // capture for any x-noah-call-kind other than "chat", so these
-            // never get recorded as something the user or Noah "said".
-            .header("x-noah-call-kind", "meta")
             .json(&body);
         let resp = self
             .apply_auth(builder)
@@ -655,11 +611,6 @@ impl LlmClient {
             .post(self.api_url())
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
-            // Metadata side-call (title / summary / diagnostic / triage) —
-            // NOT a conversation turn. noah-consumer skips telemetry
-            // capture for any x-noah-call-kind other than "chat", so these
-            // never get recorded as something the user or Noah "said".
-            .header("x-noah-call-kind", "meta")
             .json(&body);
         let resp = self
             .apply_auth(builder)
@@ -705,12 +656,7 @@ impl LlmClient {
         messages: Vec<Message>,
         tools: Vec<ToolDef>,
         system: Vec<crate::agent::prompts::SystemBlock>,
-        // Desktop session id = the Noah conversation/issue this turn
-        // belongs to. Sent as X-Conversation-Id so noah-consumer can
-        // group every turn (and survive a device→user identity switch
-        // at purchase, which keeps the same session id). None for
-        // contexts without a session (e.g. one-off auth pings).
-        conversation_id: Option<&str>,
+        _conversation_id: Option<&str>,
     ) -> Result<Response> {
         let body = ApiRequest {
             model: effective_model(),
@@ -730,17 +676,11 @@ impl LlmClient {
                 tokio::time::sleep(delay).await;
             }
 
-            let mut builder = self
+            let builder = self
                 .client
                 .post(self.api_url())
                 .header("anthropic-version", API_VERSION)
-                .header("content-type", "application/json")
-                // Real conversation turn — the one call kind noah-consumer
-                // records. Carries the conversation id when we have one.
-                .header("x-noah-call-kind", "chat");
-            if let Some(cid) = conversation_id {
-                builder = builder.header("x-conversation-id", cid);
-            }
+                .header("content-type", "application/json");
             let builder = builder.json(&body);
             let resp = match self.apply_auth(builder).send().await {
                 Ok(r) => r,
@@ -797,29 +737,29 @@ mod tests {
     fn test_friendly_api_error_401() {
         let msg = friendly_api_error(reqwest::StatusCode::UNAUTHORIZED, "");
         assert!(
-            msg.contains("session has expired"),
-            "401 should mention session expiry: {}",
+            msg.contains("API key"),
+            "401 should mention API key: {}",
             msg
         );
         assert!(
-            msg.contains("sign in"),
-            "401 should tell user to sign in: {}",
+            msg.contains("Settings"),
+            "401 should point user to Settings: {}",
             msg
         );
     }
 
     #[test]
-    fn test_friendly_api_error_401_proxy_expired() {
-        let body = r#"{"error":"expired","reason":"token_expired","invite_code":"NOAH-ABCD-1234"}"#;
+    fn test_friendly_api_error_401_ignores_legacy_auth_body() {
+        let body = r#"{"error":"expired","reason":"token_expired","legacy_code":"NOAH-ABCD-1234"}"#;
         let msg = friendly_api_error(reqwest::StatusCode::UNAUTHORIZED, body);
         assert!(
-            msg.contains("NOAH-ABCD-1234"),
-            "401 with proxy expiry should include invite code: {}",
+            msg.contains("API key"),
+            "401 with legacy auth body should still mention API key: {}",
             msg
         );
         assert!(
-            msg.contains("expired"),
-            "401 with proxy expiry should mention expiry: {}",
+            !msg.contains("NOAH-ABCD-1234"),
+            "401 should not surface legacy codes: {}",
             msg
         );
     }
@@ -848,7 +788,7 @@ mod tests {
     fn test_friendly_api_error_502() {
         let msg = friendly_api_error(reqwest::StatusCode::BAD_GATEWAY, "");
         assert!(
-            msg.contains("hiccup") || msg.contains("temporary"),
+            msg.contains("Claude") || msg.contains("temporary"),
             "502 should be friendly: {}",
             msg
         );

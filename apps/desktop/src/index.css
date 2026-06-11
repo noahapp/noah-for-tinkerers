@@ -9,7 +9,7 @@
  *     violet) is Noah's identity. Every interactive accent lives
  *     within that arc.
  *   • Two registers — Launch (aurora gradient: aim Noah at a problem)
- *     and Commit (aurora-teal: subscribe, success). Distinct but
+ *     and Commit (aurora-teal: saved, success). Distinct but
  *     visually related, both cool.
  *   • Saturation is reserved. The most-saturated thing on screen
  *     is the one thing the user is supposed to do next.
@@ -55,7 +55,7 @@
        used together (--aurora) for launch moments only.
      • aurora-teal (--color-accent-green) is the COMMIT register —
        cool seafoam, NOT grass green. Sits next to aurora-blue in
-       hue space, so subscribe/result feels related, not foreign.
+       hue space, so result states feel related, not foreign.
      • aurora-purple is for Plan-label content (semantic hue, not action).  */
   --color-accent-blue: #5b9bd5;
   --color-accent-blue-soft: rgba(91, 155, 213, 0.12);
@@ -91,7 +91,7 @@
     0 1px 2px rgba(0, 0, 0, 0.2);
 
   /* Commit moments share the launch identity — same aurora gradient,
-     same glow family. The .btn-commit class layers premium depth
+     same glow family. The .btn-commit class layers extra depth
      treatment on top (specular highlight, multi-shadow stack) so
      bigger moments feel bigger without introducing a foreign hue. */
   --commit-gradient: var(--aurora);
@@ -229,7 +229,7 @@ body,
   /* 17px root means Tailwind's text-sm = 14.9px and text-base = 17px,
      up from the previous 13.1/15. Reads as "calm and confident" for
      stressed non-technical users instead of "tight and technical".
-     Trial banner / sidebar / form descriptions all benefit uniformly
+     Sidebar and form descriptions benefit uniformly
      without touching component code. */
   font-size: 17px;
   line-height: 1.65;
@@ -298,12 +298,9 @@ h1, h2, h3, h4 {
   cursor: not-allowed;
 }
 
-/* The "commit" button — subscribe, extend trial.
-   Same aurora identity as the launch button (no foreign greens), but
-   with a more substantial premium treatment: specular highlight strip,
-   multi-layer shadow depth, deeper saturation. The user reads:
-   "this is the same Noah I trust, but this is a bigger moment."
-   Think Apple Pay button — luminous, alive, never plastic. */
+/* The "commit" button — save API key, install update, confirm a major action.
+   Same aurora identity as the launch button (no foreign greens), but with a
+   more substantial treatment for moments that change app state. */
 .btn-commit {
   position: relative;
   background: var(--aurora);
