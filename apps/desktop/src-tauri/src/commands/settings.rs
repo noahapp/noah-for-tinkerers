@@ -189,53 +189,53 @@ pub async fn get_feedback_context(state: State<'_, AppState>) -> Result<Feedback
     })
 }
 
-/// Check if the proxy token is still valid. Returns JSON with status info.
+// ── Anonymous usage telemetry (opt-out, default ON) ──────────────────
+//
+// The only telemetry this BYOK build sends is a single anonymous
+// "issue_fixed" event — no device id, no account, no PII. It's gated
+// behind a user-facing opt-out toggle that defaults ON.
+
+/// Whether anonymous usage statistics are enabled. Default ON
+/// (None or "true" → true; only an explicit "false" disables it).
 #[tauri::command]
-pub async fn check_proxy_status(state: State<'_, AppState>) -> Result<String, String> {
-    let orch = state.orchestrator.lock().await;
-    let (base_url, token) = match orch.auth() {
-        AuthMode::Proxy { base_url, auth } => match auth {
-            crate::agent::llm_client::ProxyAuth::Session(t) => {
-                (base_url.clone(), t.clone())
-            }
-            // Device-id auth isn't an invite-code token; this legacy
-            // proxy-status check doesn't apply.
-            crate::agent::llm_client::ProxyAuth::Device(_) => {
-                return Ok(r#"{"status":"not_proxy"}"#.to_string())
-            }
-        },
-        _ => return Ok(r#"{"status":"not_proxy"}"#.to_string()),
-    };
-    drop(orch);
+pub async fn get_byok_telemetry_enabled(state: State<'_, AppState>) -> Result<bool, String> {
+    let conn = state.db.lock().await;
+    let value = journal::get_setting(&conn, "byok_telemetry_enabled")
+        .map_err(|e| format!("Failed to get setting: {}", e))?;
+    Ok(value.as_deref() != Some("false"))
+}
 
-    // Make a lightweight request to the proxy to check token validity.
-    // Use the /v1/messages endpoint with an invalid body — we only care about auth status.
-    let client = reqwest::Client::new();
-    let resp = client
-        .post(format!("{}/v1/messages", base_url.trim_end_matches('/')))
-        .header("Authorization", format!("Bearer {}", token))
-        .header("Content-Type", "application/json")
-        .header("anthropic-version", "2023-06-01")
-        .body(r#"{"model":"claude-haiku-4-5-20251001","max_tokens":1,"messages":[{"role":"user","content":"ping"}]}"#)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to reach proxy: {}", e))?;
+#[tauri::command]
+pub async fn set_byok_telemetry_enabled(
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<(), String> {
+    let conn = state.db.lock().await;
+    journal::set_setting(&conn, "byok_telemetry_enabled", if enabled { "true" } else { "false" })
+        .map_err(|e| format!("Failed to save setting: {}", e))
+}
 
-    let status_code = resp.status().as_u16();
-    if status_code == 401 {
-        let body: serde_json::Value = resp.json().await.unwrap_or_default();
-        let reason = body.get("reason").and_then(|v| v.as_str()).unwrap_or("unknown");
-        let invite_code = body.get("invite_code").and_then(|v| v.as_str()).unwrap_or("");
-        let result = serde_json::json!({
-            "status": "expired",
-            "reason": reason,
-            "invite_code": invite_code,
-        });
-        return Ok(result.to_string());
+/// Fire-and-forget anonymous "issue fixed" event. Skipped when the
+/// opt-out toggle is off. The body carries nothing but the event type —
+/// no identifiers of any kind.
+#[tauri::command]
+pub async fn notify_issue_fixed(state: State<'_, AppState>) -> Result<(), String> {
+    {
+        let conn = state.db.lock().await;
+        let value = journal::get_setting(&conn, "byok_telemetry_enabled")
+            .map_err(|e| format!("{}", e))?;
+        if value.as_deref() == Some("false") {
+            return Ok(());
+        }
     }
-
-    // Any non-401 response means the token is accepted (even 400 for bad request body).
-    Ok(r#"{"status":"active"}"#.to_string())
+    // Best-effort beacon — never surface an error to the UI.
+    // TODO: confirm endpoint URL
+    let _ = reqwest::Client::new()
+        .post("https://onnoah.app/byok/event")
+        .json(&serde_json::json!({ "type": "issue_fixed" }))
+        .send()
+        .await;
+    Ok(())
 }
 
 /// Link this device to a web dashboard using a 6-char code.

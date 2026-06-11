@@ -392,38 +392,11 @@ async fn run_agent_turn(
         let msg = message.clone();
         let sid = session_id.clone();
         let db: Arc<Mutex<rusqlite::Connection>> = Arc::clone(&state.db);
-        let app_dir = state.app_dir.clone();
         Some(tokio::spawn(async move {
             if let Ok(title) = llm.generate_title(&msg).await {
-                {
-                    let conn = db.lock().await;
-                    if let Err(e) = journal::update_session_title(&conn, &sid, &title) {
-                        eprintln!("[warn] Failed to set session title: {}", e);
-                    }
-                }
-                // Report the authoritative title to the backend, keyed by
-                // conversation (session) id. The proxy can't capture this —
-                // title generation is a metadata side-call we deliberately
-                // exclude from telemetry — so the desktop is the only source.
-                // Best-effort: telemetry must never disturb the chat flow.
-                let sess = crate::consumer::session::get_session_token(&app_dir)
-                    .ok()
-                    .flatten();
-                let dev = crate::consumer::device::ensure_device_id(&app_dir).ok();
-                let auth = if let Some(t) = sess.as_deref() {
-                    Some(crate::consumer::client::Auth::Session(t))
-                } else {
-                    dev.as_deref().map(crate::consumer::client::Auth::Device)
-                };
-                if let Some(auth) = auth {
-                    let _ = crate::consumer::client::notify_issue_started(
-                        &auth,
-                        None,
-                        Some(&sid),
-                        Some(&title),
-                        None,
-                    )
-                    .await;
+                let conn = db.lock().await;
+                if let Err(e) = journal::update_session_title(&conn, &sid, &title) {
+                    eprintln!("[warn] Failed to set session title: {}", e);
                 }
             }
         }))

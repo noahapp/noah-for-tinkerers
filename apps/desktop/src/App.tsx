@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { onOpenUrl, getCurrent as getCurrentDeepLink } from "@tauri-apps/plugin-deep-link";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import * as commands from "./lib/tauri-commands";
 import { useSession } from "./hooks/useSession";
@@ -16,24 +15,19 @@ import { ProactiveSuggestionBanner } from "./components/ProactiveSuggestionBanne
 import { SessionSummary } from "./components/SessionSummary";
 import { useSessionStore } from "./stores/sessionStore";
 import { TilePickerScreen } from "./components/TilePickerScreen";
-import { OnboardingFlow } from "./components/OnboardingFlow";
-import { flags } from "./lib/flags";
-import { SubscribeModal } from "./components/SubscribeModal";
-import { TrialEmailNudge } from "./components/TrialEmailNudge";
 import { useDebugStore, type DebugEvent } from "./stores/debugStore";
-import { useConsumerStore } from "./stores/consumerStore";
 import { useTheme } from "./hooks/useTheme";
 import { useZoom } from "./hooks/useZoom";
 
 const WINDOW_TITLES = [
-  "Noah \u2014 Your Trusted Support",
-  "Noah \u2014 The \u201CComputer\u201D Guy",
-  "Noah \u2014 Have You Tried Turning It Off?",
-  "Noah \u2014 No Ticket Required",
-  "Noah \u2014 I Won\u2019t Judge Your Browser Tabs",
-  "Noah \u2014 Fixing Things Since Forever",
-  "Noah \u2014 Like a Friend Who\u2019s Good With Computers",
-  "Noah \u2014 Less Jargon, More Fixing",
+  "Noah — Your Trusted Support",
+  "Noah — The “Computer” Guy",
+  "Noah — Have You Tried Turning It Off?",
+  "Noah — No Ticket Required",
+  "Noah — I Won’t Judge Your Browser Tabs",
+  "Noah — Fixing Things Since Forever",
+  "Noah — Like a Friend Who’s Good With Computers",
+  "Noah — Less Jargon, More Fixing",
 ];
 
 function dismissSplash() {
@@ -44,134 +38,36 @@ function dismissSplash() {
   }
 }
 
-function extractDeepLinkToken(url: string, param: string): string | null {
-  try {
-    return new URL(url).searchParams.get(param);
-  } catch {
-    const m = url.match(new RegExp(`[?&]${param}=([^&]+)`));
-    return m && m[1] ? decodeURIComponent(m[1]) : null;
-  }
-}
-
 function App() {
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
   useTheme(); // Apply saved theme on mount (before setup screen too)
 
-  // First-launch gate: show the TilePicker onboarding only when the
-  // user is *both* unsigned-in AND has no chat history. Either signal
-  // alone is enough to declare "this is a returning user, skip tiles":
-  //   • Session token present → user has signed in on this device,
-  //     even if the local journal is empty (fresh install / dev build
-  //     alongside the shipping app / reset journal).
-  //   • Journal has any prior session → user has chatted before, even
-  //     anonymously on the device-id trial.
-  // Without this, a user who reinstalls or runs the dev build with an
-  // empty journal lands back on the 8-tile picker after sign-in,
-  // which feels broken — they already onboarded.
+  // First-launch gate (BYOK): show the TilePicker problem-picker only when
+  // the user has no prior chat history. It's a friendly "pick a problem"
+  // entry point that seeds the first chat turn — it does NOT gate access
+  // and never asks the user to sign in. Any prior session → straight to
+  // the app. A failed probe fails *open* (skip the picker) so nobody is
+  // stranded on the gate.
   useEffect(() => {
-    // Ensure the device id exists, then fire the activation beacon so a
-    // device that opens the app (even if it never asks anything) is
-    // counted in the funnel. Best-effort; never blocks startup.
     commands
-      .consumerEnsureDeviceId()
-      .then(() => commands.consumerNotifyAppOpen())
-      .catch(() => {});
-    // Use a sentinel so an errored probe fails *open* (skip tiles).
-    // Stranding the user on the gate is worse than skipping it once.
-    Promise.all([
-      commands.consumerHasSession().catch(() => null),
-      commands.listSessions().catch(() => null),
-    ])
-      .then(([hasSession, sessions]) => {
-        const knownReturning =
-          hasSession === true || (sessions != null && sessions.length > 0);
-        const probeFailed = hasSession === null || sessions === null;
-        setNeedsSetup(!knownReturning && !probeFailed);
+      .listSessions()
+      .then((sessions) => {
+        setNeedsSetup(sessions.length === 0);
+      })
+      .catch(() => {
+        setNeedsSetup(false);
       })
       .finally(() => {
         dismissSplash();
       });
   }, []);
 
-  // Global deep-link handler. Two URL shapes:
-  //
-  //   noah://auth?token=…           — magic-link sign-in
-  //   noah://subscribed?session_id=… — return from Stripe Checkout
-  //
-  // Two delivery paths cover both cold-start and warm-start cases:
-  //   • onOpenUrl — fires when the URL arrives while Noah is running.
-  //   • getCurrent — returns the URL that *launched* Noah, when the
-  //     user clicked the link before Noah was running. Without this,
-  //     a cold-start magic-link click leaves the user on the tile
-  //     picker, which feels broken.
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    const handleUrls = async (urls: string[]) => {
-      const authUrl = urls.find((u) => u.startsWith("noah://auth"));
-      if (authUrl) {
-        const token = extractDeepLinkToken(authUrl, "token");
-        if (!token) return;
-        try {
-          await commands.consumerCompleteSignIn(token);
-          // Refresh entitlement so MainApp's banners/billing reflect
-          // the signed-in state on first paint, not after a poll.
-          await useConsumerStore.getState().refresh();
-          setNeedsSetup(false);
-        } catch (err) {
-          // Surface to console so users can pull a log if it happens
-          // again — silent failures here are why "click magic link →
-          // stuck on tiles" was so hard to diagnose.
-          console.error("[noah] complete-sign-in failed", err);
-        }
-        return;
-      }
-      const subUrl = urls.find((u) => u.startsWith("noah://subscribed"));
-      if (subUrl) {
-        const sid = extractDeepLinkToken(subUrl, "session_id");
-        if (!sid) return;
-        try {
-          const ent = await commands.consumerConfirmCheckout(sid);
-          const consumer = useConsumerStore.getState();
-          if (ent) consumer.setEntitlement(ent);
-          consumer.refresh();
-          consumer.closeSubscribeModal();
-          setNeedsSetup(false);
-        } catch (err) {
-          console.error("[noah] confirm-checkout failed", err);
-        }
-      }
-    };
-    // Drain any URL that launched the app (cold-start path).
-    getCurrentDeepLink()
-      .then((urls) => {
-        if (urls && urls.length > 0) handleUrls(urls);
-      })
-      .catch(() => {});
-    // Subscribe for URLs delivered while running (warm-start path).
-    onOpenUrl(handleUrls)
-      .then((fn) => {
-        unlisten = fn;
-      })
-      .catch(() => {});
-    return () => {
-      unlisten?.();
-    };
-  }, []);
-
   // Show nothing while checking (splash is still visible).
   if (needsSetup === null) return null;
 
-  // Show the tile-picker onboarding if no auth configured. It handles
-  // both fresh users (pick a problem → sign in) and returning users
-  // (tap "Already have an account? Sign in").
+  // First run → problem picker. It seeds the first chat turn and calls
+  // onComplete to drop into the app.
   if (needsSetup) {
-    // Flag-gated scan-reveal onboarding (the placement-A/B paywall). Default
-    // OFF — runtime is the existing TilePicker until the flag is flipped and
-    // real diagnostics + the sign-in handoff are wired into OnboardingFlow's
-    // onComplete. See noah-consumer/designs/onboarding/SPEC.md.
-    if (flags.scanRevealOnboarding()) {
-      return <OnboardingFlow onComplete={() => setNeedsSetup(false)} />;
-    }
     return <TilePickerScreen onComplete={() => setNeedsSetup(false)} />;
   }
 
@@ -184,29 +80,6 @@ function MainApp() {
   const activeView = useSessionStore((s) => s.activeView);
   const addEvent = useDebugStore((s) => s.addEvent);
   const toggle = useDebugStore((s) => s.toggle);
-  const refreshEntitlement = useConsumerStore((s) => s.refresh);
-  const subscribeModal = useConsumerStore((s) => s.subscribeModal);
-  const closeSubscribeModal = useConsumerStore((s) => s.closeSubscribeModal);
-  const startPostCheckoutPolling = useConsumerStore(
-    (s) => s.startPostCheckoutPolling,
-  );
-
-  // Hydrate the consumer entitlement once MainApp mounts.
-  useEffect(() => {
-    refreshEntitlement();
-  }, [refreshEntitlement]);
-
-  // Refresh entitlement whenever the window regains focus — covers the
-  // common "user came back from Stripe Checkout in the browser" case
-  // even outside the post-checkout poll window. Cheap (one GET) and
-  // doesn't require platform branching.
-  useEffect(() => {
-    const onFocus = () => {
-      refreshEntitlement();
-    };
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [refreshEntitlement]);
 
   // Set a random cheeky window title on mount.
   useEffect(() => {
@@ -238,12 +111,7 @@ function MainApp() {
 
   return (
     <div className="flex flex-col h-screen bg-bg-primary text-text-primary">
-      {/* Title bar — spans full width, sits in macOS overlay region.
-          Trial state moved into the Sidebar footer; update prompt moved
-          into Settings (with a dot on the sidebar cog when available).
-          The email nudge stays here — its job is funnel data capture. */}
       <MainTitleBar />
-      <TrialEmailNudge />
       <ProactiveSuggestionBanner />
 
       {/* Body: sidebar + main content */}
@@ -269,22 +137,6 @@ function MainApp() {
           <ActionApproval />
         </div>
       </div>
-      {subscribeModal && (
-        <SubscribeModal
-          variant={subscribeModal.variant}
-          onDismiss={closeSubscribeModal}
-          onCheckoutOpened={() => {
-            // Kick the fast poll loop: every 3s for up to 15 min, until
-            // entitlement.status flips to "active". This is the
-            // Windows-friendly activation path — the noah://subscribed
-            // deep link still wins on Mac but the loop catches anything
-            // the deep link misses (Windows warm-start, slow webhooks,
-            // etc.) within the same 15-min window the user is most
-            // likely to be paying attention.
-            startPostCheckoutPolling();
-          }}
-        />
-      )}
     </div>
   );
 }

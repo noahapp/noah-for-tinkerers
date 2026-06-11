@@ -8,7 +8,6 @@ import * as commands from "../lib/tauri-commands";
 import type { SessionRecord } from "../lib/tauri-commands";
 import { isMac } from "../lib/platform";
 import { SidebarToggleIcon, SettingsGearIcon } from "./MainTitleBar";
-import { TrialBanner } from "./TrialBanner";
 import { useUpdateAvailable } from "../hooks/useUpdateAvailable";
 
 // Map app locale to BCP 47 tag for Intl date/time formatting.
@@ -515,13 +514,8 @@ export function Sidebar({ session }: SidebarProps) {
         )}
       </div>
 
-      {/* Bottom-pinned: trial state (if trialing) sits above the settings
-          row. Replaces the old top-of-app TrialBanner stack — the chat
-          canvas stays unobstructed. */}
+      {/* Bottom-pinned: settings row. */}
       <div className="mt-auto">
-        <div className="px-2 pt-2 pb-1">
-          <TrialBanner />
-        </div>
         <div className="px-2 pb-2 pt-1 border-t border-border-primary">
           <button
             onClick={() => setActiveView(settingsActive ? "chat" : "settings")}

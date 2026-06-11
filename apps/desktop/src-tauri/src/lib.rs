@@ -1,6 +1,5 @@
 pub mod agent;
 mod commands;
-pub mod consumer;
 mod dashboard_link;
 pub mod debug_runner;
 mod knowledge;
@@ -48,17 +47,16 @@ pub struct AppState {
     pub playbook_registry: Arc<RwLock<playbooks::PlaybookRegistry>>,
 }
 
-/// Load auth in priority order:
-///   1. BYOK (api_key.txt) — open-source escape hatch, fully offline
-///   2. Consumer session token from macOS Keychain → routes through noah-consumer
-///   3. ANTHROPIC_API_KEY env var (dev fallback)
+/// Load auth — pure BYOK.
+///   1. BYOK (api_key.txt) — the user's own Anthropic API key.
+///   2. ANTHROPIC_API_KEY env var (dev fallback).
+/// Requests always go directly to Anthropic; there is no proxy/consumer path.
+// TODO(byok-ux): let users set the API key from Settings with good ergonomics,
+// not by hand-editing api_key.txt
 fn load_auth(app_dir: &std::path::Path) -> AuthMode {
-    // Legacy invite-code proxy.json is no longer used; clean it up if present
-    // so old installs don't carry stale tokens.
-    let legacy = app_dir.join("proxy.json");
-    if legacy.exists() {
-        let _ = std::fs::remove_file(&legacy);
-    }
+    // Legacy proxy.json / session.txt are no longer used; clean them up if
+    // present so old installs don't carry stale tokens.
+    let _ = std::fs::remove_file(app_dir.join("proxy.json"));
 
     let key_path = app_dir.join("api_key.txt");
     if let Ok(contents) = std::fs::read_to_string(&key_path) {
@@ -68,45 +66,17 @@ fn load_auth(app_dir: &std::path::Path) -> AuthMode {
         }
     }
 
-    if let Ok(Some(token)) = crate::consumer::session::get_session_token(app_dir) {
-        return AuthMode::Proxy {
-            base_url: crate::consumer::client::base_url(),
-            auth: crate::agent::llm_client::ProxyAuth::Session(token),
-        };
-    }
-
-    // Device-first anonymous trial — no sign-in required.
-    // ensure_device_id writes a UUID to a plain file in app_dir on
-    // first launch and reads it on subsequent launches.
-    if let Ok(device_id) = crate::consumer::device::ensure_device_id(app_dir) {
-        return AuthMode::Proxy {
-            base_url: crate::consumer::client::base_url(),
-            auth: crate::agent::llm_client::ProxyAuth::Device(device_id),
-        };
-    }
-
     AuthMode::ApiKey(std::env::var("ANTHROPIC_API_KEY").unwrap_or_default())
 }
 
-/// Save API key to config file (and remove proxy.json if present).
+/// Save API key to config file.
+// TODO(byok-ux): let users set the API key from Settings with good ergonomics,
+// not by hand-editing api_key.txt
 pub fn save_api_key(app_dir: &std::path::Path, key: &str) -> Result<(), String> {
     let key_path = app_dir.join("api_key.txt");
     std::fs::write(&key_path, key).map_err(|e| format!("Failed to save API key: {}", e))?;
-    // Remove proxy config if switching to API key mode
-    let proxy_path = app_dir.join("proxy.json");
-    let _ = std::fs::remove_file(&proxy_path);
-    Ok(())
-}
-
-/// Save proxy config (and remove api_key.txt if present).
-pub fn save_proxy_config(app_dir: &std::path::Path, base_url: &str, token: &str) -> Result<(), String> {
-    let proxy_path = app_dir.join("proxy.json");
-    let json = serde_json::json!({ "base_url": base_url, "token": token });
-    std::fs::write(&proxy_path, json.to_string())
-        .map_err(|e| format!("Failed to save proxy config: {}", e))?;
-    // Remove API key file if switching to proxy mode
-    let key_path = app_dir.join("api_key.txt");
-    let _ = std::fs::remove_file(&key_path);
+    // Remove any legacy proxy config left over from older builds.
+    let _ = std::fs::remove_file(app_dir.join("proxy.json"));
     Ok(())
 }
 
@@ -115,9 +85,6 @@ pub fn clear_auth_files(app_dir: &std::path::Path) {
     let _ = std::fs::remove_file(app_dir.join("api_key.txt"));
     let _ = std::fs::remove_file(app_dir.join("proxy.json"));
     let _ = std::fs::remove_file(app_dir.join("session.txt"));
-    // Intentionally do NOT remove device_id.txt here — clear_auth is
-    // "sign me out," which should drop back to anonymous-device mode,
-    // not reset the device identity.
 }
 
 /// Migrate user data from the old `com.itman.app` directory to the new location.
@@ -326,7 +293,7 @@ pub fn run() {
             let playbook_registry = Arc::new(RwLock::new(playbook_registry));
             router.register(Box::new(playbooks::ActivatePlaybookTool::new(playbook_registry.clone())));
 
-            // Load auth: proxy config, API key file, or env var.
+            // Load auth: BYOK API key file or env var.
             let auth = load_auth(&app_dir);
             let llm = LlmClient::with_auth(auth);
             let llm_for_monitor = llm.clone();
@@ -682,7 +649,6 @@ pub fn run() {
             commands::settings::has_api_key,
             commands::settings::set_api_key,
             commands::settings::get_auth_mode,
-            commands::settings::check_proxy_status,
             commands::settings::clear_auth,
             commands::settings::get_app_version,
             commands::settings::get_telemetry_consent,
@@ -716,19 +682,9 @@ pub fn run() {
             commands::health::resolve_fleet_action,
             commands::health::start_fleet_playbook,
             commands::health::verify_remediation,
-            commands::consumer::consumer_has_session,
-            commands::consumer::consumer_ensure_device_id,
-            commands::consumer::consumer_request_magic_link,
-            commands::consumer::consumer_complete_sign_in,
-            commands::consumer::consumer_sign_out,
-            commands::consumer::consumer_get_entitlement,
-            commands::consumer::consumer_notify_app_open,
-            commands::consumer::consumer_notify_issue_started,
-            commands::consumer::consumer_notify_fix_completed,
-            commands::consumer::consumer_billing_checkout_url,
-            commands::consumer::consumer_billing_portal_url,
-            commands::consumer::consumer_confirm_checkout,
-            commands::consumer::consumer_trial_link_email,
+            commands::settings::get_byok_telemetry_enabled,
+            commands::settings::set_byok_telemetry_enabled,
+            commands::settings::notify_issue_fixed,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

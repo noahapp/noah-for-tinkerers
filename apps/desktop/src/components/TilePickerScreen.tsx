@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -11,7 +11,6 @@ import {
   Wifi,
 } from "lucide-react";
 import { NoahIcon } from "./NoahIcon";
-import { SignInScreen } from "./SignInScreen";
 import { useLocale } from "../i18n";
 
 interface TilePickerScreenProps {
@@ -41,34 +40,16 @@ const TILES: readonly Tile[] = [
   { id: "other",   Icon: MessageCircle, titleKey: "onboarding.tile.other.title",   descKey: "onboarding.tile.other.desc",   hintKey: "onboarding.tile.other.hint" },
 ];
 
-type Stage =
-  | { name: "pick" }
-  | { name: "signin"; tile: Tile | null; seedMessage: string | null };
-
 /**
- * First-run entry for users without a session. Shows a grid of eight
- * common Mac problems ("Pick One"). Picking a concrete tile goes
- * STRAIGHT into the diagnosis — the tile IS the statement of intent, so
- * we seed it as the first chat turn and let Noah ask for any specifics
- * conversationally. (We used to route every pick through a full-screen
- * clarifier textarea; even though typing was optional, the box read as
- * "you must type" and bounced people on first run.) The "other" tile,
- * which has no preset problem, opens the chat empty so the user can
- * describe it there. No sign-in required; the device's anonymous trial
- * starts when the server sees /events/issue-started.
+ * First-run entry (BYOK). Shows a grid of eight common Mac problems
+ * ("Pick One"). Picking a concrete tile goes STRAIGHT into the diagnosis —
+ * the tile IS the statement of intent, so we seed it as the first chat turn
+ * and let Noah ask for any specifics conversationally. The "other" tile,
+ * which has no preset problem, opens the chat empty so the user can describe
+ * it there. No sign-in required.
  */
 export function TilePickerScreen({ onComplete }: TilePickerScreenProps) {
   const { t } = useLocale();
-  const [stage, setStage] = useState<Stage>({ name: "pick" });
-
-  const goPick = useCallback(() => {
-    setStage({ name: "pick" });
-  }, []);
-
-  const goSignInBlank = useCallback(() => {
-    // Restore path — explicit "Already have an account? Sign in" link.
-    setStage({ name: "signin", tile: null, seedMessage: null });
-  }, []);
 
   const handlePick = useCallback(
     (tile: Tile) => {
@@ -95,27 +76,15 @@ export function TilePickerScreen({ onComplete }: TilePickerScreenProps) {
     [onComplete, t],
   );
 
-  if (stage.name === "signin") {
-    return (
-      <SignInScreen
-        onComplete={onComplete}
-        seedContext={null}
-        onBack={goPick}
-      />
-    );
-  }
-
-  return <PickStage onPick={handlePick} onSignInClick={goSignInBlank} />;
+  return <PickStage onPick={handlePick} />;
 }
 
 // ── Pick stage ────────────────────────────────────────────────────────────
 
 function PickStage({
   onPick,
-  onSignInClick,
 }: {
   onPick: (tile: Tile) => void;
-  onSignInClick: () => void;
 }) {
   const { t, tArray } = useLocale();
   const taglines = tArray("setup.taglines");
@@ -219,14 +188,6 @@ function PickStage({
               ))}
             </div>
 
-            <div className="mt-6 text-center">
-              <button
-                onClick={onSignInClick}
-                className="text-xs text-text-muted hover:text-text-secondary underline cursor-pointer"
-              >
-                {t("onboarding.alreadyHaveAccount")}
-              </button>
-            </div>
           </div>
         </div>
       </div>

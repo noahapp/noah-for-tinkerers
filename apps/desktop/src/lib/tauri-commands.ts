@@ -250,19 +250,8 @@ export async function setApiKey(apiKey: string): Promise<void> {
   await invoke<void>("set_api_key", { apiKey });
 }
 
-export async function getAuthMode(): Promise<"api_key" | "proxy"> {
-  return await invoke<"api_key" | "proxy">("get_auth_mode");
-}
-
-export interface ProxyStatus {
-  status: "active" | "expired" | "not_proxy";
-  reason?: string;
-  invite_code?: string;
-}
-
-export async function checkProxyStatus(): Promise<ProxyStatus> {
-  const json = await invoke<string>("check_proxy_status");
-  return JSON.parse(json);
+export async function getAuthMode(): Promise<"api_key"> {
+  return await invoke<"api_key">("get_auth_mode");
 }
 
 export async function clearAuth(): Promise<void> {
@@ -304,6 +293,22 @@ export async function trackEvent(
   data: string = "{}",
 ): Promise<void> {
   await invoke<void>("track_event", { eventType, data });
+}
+
+// ── Anonymous usage statistics (opt-out, default ON) ──
+
+export async function getByokTelemetryEnabled(): Promise<boolean> {
+  return await invoke<boolean>("get_byok_telemetry_enabled");
+}
+
+export async function setByokTelemetryEnabled(enabled: boolean): Promise<void> {
+  await invoke<void>("set_byok_telemetry_enabled", { enabled });
+}
+
+/** Fire the single anonymous "issue fixed" event. Best-effort, gated on
+ *  the opt-out toggle in the backend; carries no identifiers. */
+export async function notifyIssueFixed(): Promise<void> {
+  await invoke<void>("notify_issue_fixed");
 }
 
 export interface TraceSummary {
@@ -490,145 +495,6 @@ export async function startFleetPlaybook(actionId: string, playbookSlug: string)
 
 export async function verifyRemediation(actionId: string): Promise<string> {
   return await invoke<string>("verify_remediation", { actionId });
-}
-
-// ── Consumer (account / subscription) ──
-
-export interface Entitlement {
-  plan: string | null;
-  status: "none" | "trialing" | "active" | "past_due" | "canceled" | "expired";
-  trial_started_at: number | null;
-  trial_ends_at: number | null;
-  tz_offset_minutes?: number | null;
-  /** Soft-captured email from the in-app trial nudge. Drives the
-      day-5 trial-ending recovery email. */
-  email?: string | null;
-  period_start: number | null;
-  period_end: number | null;
-  usage_used: number;
-  usage_limit: number;
-  fix_count_total: number;
-  /**
-   * Paywall-placement A/B arm from the server (deterministic per subject):
-   *  - "launch"    → scan-reveal paywall right after the onboarding scan.
-   *  - "after_fix" → value-first; paywall at the first proven fix.
-   * Absent on older servers — treat missing as "after_fix" (never paywall
-   * aggressively on missing data). See noah-consumer src/lib/paywall.ts.
-   */
-  paywall_placement?: "launch" | "after_fix" | null;
-}
-
-export interface FixCompletedResult {
-  fix_count_total: number;
-  usage_used: number;
-  entitlement: Entitlement;
-}
-
-export async function consumerHasSession(): Promise<boolean> {
-  return await invoke<boolean>("consumer_has_session");
-}
-
-/**
- * Ensure a stable device id exists in the Keychain. Returns the id —
- * newly generated on first call, the same value on subsequent calls.
- * This is the identity for anonymous device trials; sent as
- * `X-Device-Id` to the consumer backend when no session token exists.
- */
-export async function consumerEnsureDeviceId(): Promise<string> {
-  return await invoke<string>("consumer_ensure_device_id");
-}
-
-/**
- * Request a magic link. The server will send the emailed link for
- * future-use re-auth, but will also issue a session token immediately
- * so the user can proceed without clicking the link. Returns the fresh
- * entitlement when auto-sign-in succeeded, null if the server chose to
- * gate on the email click (fallback flow).
- */
-export async function consumerRequestMagicLink(
-  email: string,
-): Promise<Entitlement | null> {
-  return await invoke<Entitlement | null>("consumer_request_magic_link", { email });
-}
-
-export async function consumerCompleteSignIn(token: string): Promise<Entitlement> {
-  return await invoke<Entitlement>("consumer_complete_sign_in", { token });
-}
-
-export async function consumerSignOut(): Promise<void> {
-  await invoke<void>("consumer_sign_out");
-}
-
-export async function consumerGetEntitlement(): Promise<Entitlement | null> {
-  return await invoke<Entitlement | null>("consumer_get_entitlement");
-}
-
-/** Activation beacon — fired once per launch so an app-open is counted
- *  even if the user never sends a message. Best-effort. */
-export async function consumerNotifyAppOpen(): Promise<void> {
-  await invoke<void>("consumer_notify_app_open");
-}
-
-export async function consumerNotifyIssueStarted(
-  tzOffsetMinutes?: number,
-  // Conversation/issue context (all optional, ignored by older servers):
-  // the session id, the generated title, and the verbatim opening prompt.
-  conversationId?: string,
-  title?: string,
-  text?: string,
-): Promise<Entitlement | null> {
-  return await invoke<Entitlement | null>("consumer_notify_issue_started", {
-    tzOffsetMinutes:
-      typeof tzOffsetMinutes === "number"
-        ? tzOffsetMinutes
-        : new Date().getTimezoneOffset(),
-    conversationId: conversationId ?? null,
-    title: title ?? null,
-    text: text ?? null,
-  });
-}
-
-/**
- * Frictionless email capture from the in-app trial nudge. No
- * confirmation needed — server stores it on the entitlement and we
- * use it later for trial-end recovery emails. Throws on hard failure;
- * the UI generally swallows errors silently (it's a soft ask, not a
- * required step).
- */
-export async function consumerTrialLinkEmail(email: string): Promise<void> {
-  await invoke<void>("consumer_trial_link_email", { email });
-}
-
-export async function consumerNotifyFixCompleted(
-  conversationId?: string,
-  outcome?: string,
-): Promise<FixCompletedResult | null> {
-  return await invoke<FixCompletedResult | null>("consumer_notify_fix_completed", {
-    conversationId: conversationId ?? null,
-    outcome: outcome ?? null,
-  });
-}
-
-export async function consumerBillingCheckoutUrl(plan: "monthly" | "annual"): Promise<string> {
-  return await invoke<string>("consumer_billing_checkout_url", { plan });
-}
-
-export async function consumerBillingPortalUrl(): Promise<string> {
-  return await invoke<string>("consumer_billing_portal_url");
-}
-
-/**
- * After Stripe Checkout → noah://subscribed?session_id=… deep link,
- * hand the session_id to the backend to finalize (upsert user by
- * email, link device, mint session token). Returns the fresh
- * entitlement if the confirm succeeded, null otherwise.
- */
-export async function consumerConfirmCheckout(
-  checkoutSessionId: string,
-): Promise<Entitlement | null> {
-  return await invoke<Entitlement | null>("consumer_confirm_checkout", {
-    checkoutSessionId,
-  });
 }
 
 // ── V2 Agent Commands ──

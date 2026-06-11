@@ -59,27 +59,12 @@ pub struct TriageResult {
 
 // ── Auth mode ─────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone)]
-pub enum ProxyAuth {
-    /// Signed-in session — `Authorization: Bearer <token>`.
-    Session(String),
-    /// Anonymous device trial — `X-Device-Id: <uuid>`.
-    Device(String),
-}
-
-impl ProxyAuth {
-    pub fn is_empty(&self) -> bool {
-        match self {
-            ProxyAuth::Session(s) => s.is_empty(),
-            ProxyAuth::Device(d) => d.is_empty(),
-        }
-    }
-}
-
+/// Pure BYOK: requests always go directly to Anthropic with the user's
+/// own API key. (A `NOAH_API_URL` env override is still honoured for
+/// pointing at a local Anthropic-compatible server during development.)
 #[derive(Debug, Clone)]
 pub enum AuthMode {
     ApiKey(String),
-    Proxy { base_url: String, auth: ProxyAuth },
 }
 
 // ── Request types ──────────────────────────────────────────────────────
@@ -184,6 +169,10 @@ fn system_text(s: &str) -> Vec<crate::agent::prompts::SystemBlock> {
 pub struct LlmClient {
     auth: AuthMode,
     client: reqwest::Client,
+    /// Test-only base-URL override (e.g. an unreachable address to force
+    /// request failures). Never set in production paths.
+    #[cfg(test)]
+    api_url_override: Option<String>,
 }
 
 /// Strip markdown code fences (```json ... ```) from an LLM response.
@@ -279,9 +268,11 @@ pub fn is_context_limit_error(status: reqwest::StatusCode, body: &str) -> bool {
 
 impl LlmClient {
     pub fn new(api_key: String) -> Self {
-        // User-Agent identifies this client to noah-consumer's LLM proxy
-        // for abuse-control purposes (per-version blocklist via the
-        // MIN_APP_VERSION env). Format: noah-desktop/<semver> on <os>.
+        Self::with_auth(AuthMode::ApiKey(api_key))
+    }
+
+    pub fn with_auth(auth: AuthMode) -> Self {
+        // User-Agent identifies this client. Format: noah-desktop/<semver> on <os>.
         let ua = format!(
             "noah-desktop/{} ({})",
             env!("CARGO_PKG_VERSION"),
@@ -293,26 +284,20 @@ impl LlmClient {
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
         Self {
-            auth: AuthMode::ApiKey(api_key),
+            auth,
             client,
+            #[cfg(test)]
+            api_url_override: None,
         }
     }
 
-    pub fn with_auth(auth: AuthMode) -> Self {
-        // User-Agent identifies this client to noah-consumer's LLM proxy
-        // for abuse-control purposes (per-version blocklist via the
-        // MIN_APP_VERSION env). Format: noah-desktop/<semver> on <os>.
-        let ua = format!(
-            "noah-desktop/{} ({})",
-            env!("CARGO_PKG_VERSION"),
-            std::env::consts::OS
-        );
-        let client = reqwest::Client::builder()
-            .user_agent(ua)
-            .timeout(std::time::Duration::from_secs(request_timeout_secs()))
-            .build()
-            .unwrap_or_else(|_| reqwest::Client::new());
-        Self { auth, client }
+    /// Test-only: build a client whose requests target `base_url` instead
+    /// of the Anthropic endpoint (used to force fast failures in tests).
+    #[cfg(test)]
+    pub fn with_test_base_url(api_key: String, base_url: String) -> Self {
+        let mut c = Self::with_auth(AuthMode::ApiKey(api_key));
+        c.api_url_override = Some(base_url);
+        c
     }
 
     pub fn set_api_key(&mut self, key: String) {
@@ -334,7 +319,6 @@ impl LlmClient {
         }
         match &self.auth {
             AuthMode::ApiKey(key) => !key.is_empty(),
-            AuthMode::Proxy { auth, .. } => !auth.is_empty(),
         }
     }
 
@@ -345,33 +329,25 @@ impl LlmClient {
     pub fn auth_mode_name(&self) -> &str {
         match &self.auth {
             AuthMode::ApiKey(_) => "api_key",
-            AuthMode::Proxy { .. } => "proxy",
         }
     }
 
-    /// Get the API URL based on auth mode (env override takes priority).
+    /// Get the API URL (env override takes priority, else Anthropic direct).
     fn api_url(&self) -> String {
+        #[cfg(test)]
+        if let Some(url) = &self.api_url_override {
+            return format!("{}/v1/messages", url.trim_end_matches('/'));
+        }
         if let Some(url) = env_api_url() {
             return format!("{}/v1/messages", url.trim_end_matches('/'));
         }
-        match &self.auth {
-            AuthMode::ApiKey(_) => ANTHROPIC_API_URL.to_string(),
-            AuthMode::Proxy { base_url, .. } => {
-                format!("{}/v1/messages", base_url.trim_end_matches('/'))
-            }
-        }
+        ANTHROPIC_API_URL.to_string()
     }
 
     /// Apply auth headers to a request builder.
     fn apply_auth(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
         match &self.auth {
             AuthMode::ApiKey(key) => builder.header("x-api-key", key),
-            AuthMode::Proxy { auth, .. } => match auth {
-                ProxyAuth::Session(t) => {
-                    builder.header("Authorization", format!("Bearer {}", t))
-                }
-                ProxyAuth::Device(d) => builder.header("X-Device-Id", d.clone()),
-            },
         }
     }
 

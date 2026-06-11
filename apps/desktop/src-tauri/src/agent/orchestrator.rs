@@ -1264,7 +1264,7 @@ fn fallback_context_summary(existing_summary: Option<&str>, messages_text: &str)
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent::llm_client::{AuthMode, LlmClient, ProxyAuth};
+    use crate::agent::llm_client::LlmClient;
     use crate::agent::tool_router::ToolRouter;
 
     fn test_orchestrator() -> Orchestrator {
@@ -1451,10 +1451,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_force_compression_falls_back_when_summary_request_fails() {
-        let llm = LlmClient::with_auth(AuthMode::Proxy {
-            base_url: "http://127.0.0.1:9".to_string(),
-            auth: ProxyAuth::Session("test-token".to_string()),
-        });
+        // Point the BYOK client at an unreachable local address so the
+        // summary request fails fast and the fallback path is exercised.
+        let llm = LlmClient::with_test_base_url(
+            "test-key".to_string(),
+            "http://127.0.0.1:9".to_string(),
+        );
         let mut orch = test_orchestrator_with_llm(llm);
         let id = orch.create_session();
         let session = orch.sessions.get_mut(&id).unwrap();

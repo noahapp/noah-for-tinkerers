@@ -3,7 +3,6 @@ import { listen } from "@tauri-apps/api/event";
 import { Check, Info } from "lucide-react";
 import { useChatStore } from "../stores/chatStore";
 import { useSessionStore } from "../stores/sessionStore";
-import { useConsumerStore } from "../stores/consumerStore";
 import type { Message, ToolCall } from "../stores/chatStore";
 import { useAgent } from "../hooks/useAgent";
 import { parseResponse } from "../lib/parseResponse";
@@ -1020,22 +1019,13 @@ function DoneCard({
     } catch (err) {
       console.error("Failed to mark resolved:", err);
     }
-    // Consumer hook: on "Yes, fixed", record the fix on the server
-    // so usage_used increments against the monthly cap. The subscribe
-    // modal has already been shown (or dismissed) at the commitment
-    // moment — the RUN_STEP click on the action card — so nothing
-    // to surface here.
+    // On "Yes, fixed", fire the single anonymous usage event. Best-effort,
+    // gated on the opt-out toggle in the backend; carries no identifiers.
     if (value) {
       try {
-        const result = await commands.consumerNotifyFixCompleted(
-          sessionId,
-          summary,
-        );
-        if (result) {
-          useConsumerStore.getState().setEntitlement(result.entitlement);
-        }
+        await commands.notifyIssueFixed();
       } catch {
-        // best-effort — usage metering shouldn't block the UI.
+        // best-effort — anonymous telemetry must never block the UI.
       }
     }
   };
@@ -1703,10 +1693,9 @@ export function ChatPanel() {
     }
   }, [input]);
 
-  // Pending seed message: set by SignInScreen (via TilePickerScreen)
-  // just before the magic-link request, so the user's chosen category
-  // + clarifier becomes the first chat turn once they return signed in.
-  // We consume it exactly once, on the first fresh session the user
+  // Pending seed message: set by TilePickerScreen when the user picks a
+  // problem on first run, so their chosen category becomes the first chat
+  // turn. We consume it exactly once, on the first fresh session the user
   // lands on after sign-in.
   useEffect(() => {
     if (!sessionId || isProcessing) return;

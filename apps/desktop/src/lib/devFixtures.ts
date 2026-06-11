@@ -17,14 +17,13 @@
  *   await __noahDev.runScenarios({ only: "net-slow" })
  *
  * Drives the actual `send_message_v2` Tauri command, so it goes through
- * the real orchestrator → real ProxyAuth → real Anthropic / consumer
- * proxy. The only thing bypassed is React state rendering — adoption
- * shape comes straight from `assistant_ui` returned by the command.
+ * the real orchestrator → real Anthropic API (BYOK). The only thing
+ * bypassed is React state rendering — adoption shape comes straight from
+ * `assistant_ui` returned by the command.
  */
 import { useChatStore } from "../stores/chatStore";
 import * as commands from "./tauri-commands";
 import type { AssistantUiPayload } from "./tauri-commands";
-import { recordAssistantUiShape } from "./spaShapeTelemetry";
 
 const SPA_INTERNET: AssistantUiPayload = {
   kind: "spa",
@@ -191,7 +190,6 @@ async function runOneScenario(scenario: {
     // model's behavior. Uses the same Tauri command the app uses.
     const session = await commands.createSession();
     const result = await commands.sendMessageV2(session.id, scenario.prompt);
-    recordAssistantUiShape(result.assistant_ui);
     const cls = classifyShape(result.assistant_ui);
     return {
       id: scenario.id,

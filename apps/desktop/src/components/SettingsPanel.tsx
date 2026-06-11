@@ -5,28 +5,21 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { useTheme, type ThemePreference } from "../hooks/useTheme";
 import * as commands from "../lib/tauri-commands";
 import { useLocale } from "../i18n";
-import { BillingSection } from "./BillingSection";
 
 /**
- * Direction A — "Refined single page" Settings.
- *
- * Stacked single column at 760px. Three cards sharing the same rhythm:
- *   1. Billing — page hero. Status dot+pill, plan as a typed line,
- *      trial sentence as body copy, single aurora "Manage subscription"
- *      action in a soft action strip.
+ * BYOK Settings — single stacked column at 760px:
+ *   1. API key — the user's own Anthropic API key (BYOK).
  *   2. Appearance — segmented control with a sliding aurora thumb.
- *   3. Help & feedback — two quiet action rows with aurora-tinted
- *      icon squares.
+ *   3. Privacy — anonymous usage statistics opt-out.
+ *   4. Help & feedback — quiet action rows.
  *
  * Aurora is reserved strictly for the commit moment.
  */
 export function SettingsPanel() {
   const [version, setVersion] = useState("");
-  const [authMode, setAuthMode] = useState<"api_key" | "proxy">("proxy");
 
   useEffect(() => {
     commands.getAppVersion().then(setVersion).catch(() => {});
-    commands.getAuthMode().then(setAuthMode).catch(() => {});
   }, []);
 
   const { preference: themePref, setTheme } = useTheme();
@@ -59,7 +52,8 @@ export function SettingsPanel() {
         </header>
 
         <div className="space-y-[18px]">
-          {authMode === "proxy" && <BillingSection />}
+          {/* ── API key card ─────────────────────────────────────── */}
+          <ApiKeySection t={t} />
 
           {/* ── Appearance card ──────────────────────────────────── */}
           <SettingsCard>
@@ -77,6 +71,9 @@ export function SettingsPanel() {
               <AppearanceToggle value={themePref} onChange={setTheme} t={t} />
             </div>
           </SettingsCard>
+
+          {/* ── Privacy card ─────────────────────────────────────── */}
+          <PrivacySection t={t} />
 
           {/* ── Help & feedback card ─────────────────────────────── */}
           <SettingsCard>
@@ -102,6 +99,149 @@ export function SettingsPanel() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ── API key (BYOK) card ──────────────────────────────────────────────
+//
+// TODO(byok-ux): let users set the API key from Settings with good
+// ergonomics, not by hand-editing api_key.txt. This is the minimal
+// in-app entry point — paste a key, save, done.
+function ApiKeySection({ t }: { t: Tt }) {
+  const [hasKey, setHasKey] = useState<boolean | null>(null);
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    commands.hasApiKey().then(setHasKey).catch(() => setHasKey(false));
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    setError(null);
+    setSaved(false);
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setError(t("settings.apiKeyEmpty"));
+      return;
+    }
+    if (!trimmed.startsWith("sk-ant-")) {
+      setError(t("settings.apiKeyInvalid"));
+      return;
+    }
+    setSaving(true);
+    try {
+      await commands.setApiKey(trimmed);
+      setHasKey(true);
+      setValue("");
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  }, [value, t]);
+
+  return (
+    <SettingsCard>
+      <div className="px-[22px] py-5">
+        <div className="flex items-center justify-between mb-3">
+          <SectionEyebrow>{t("settings.apiKey")}</SectionEyebrow>
+          <span className="text-[11.5px] text-text-muted whitespace-nowrap">
+            {hasKey
+              ? t("settings.apiKeySet")
+              : t("settings.apiKeyNotSet")}
+          </span>
+        </div>
+        <p className="text-[12.5px] text-text-muted leading-relaxed mb-3">
+          {t("settings.apiKeyDesc")}
+        </p>
+        <input
+          type="password"
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setSaved(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave();
+          }}
+          placeholder={t("settings.apiKeyPlaceholder")}
+          className="w-full px-4 py-2.5 rounded-xl bg-bg-input border border-border-primary text-sm text-text-primary placeholder-text-muted outline-none focus:border-border-focus transition-colors"
+        />
+        {error && <p className="text-xs text-accent-red mt-2">{error}</p>}
+        {saved && (
+          <p className="text-xs text-accent-green mt-2">
+            {t("settings.apiKeySaved")}
+          </p>
+        )}
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="btn-commit mt-3 px-3.5 py-2 rounded-[10px] text-[12.5px] font-semibold cursor-pointer disabled:opacity-50"
+        >
+          {saving ? t("settings.apiKeySaving") : t("settings.apiKeySave")}
+        </button>
+      </div>
+    </SettingsCard>
+  );
+}
+
+// ── Privacy card — anonymous usage statistics opt-out (default ON) ────
+function PrivacySection({ t }: { t: Tt }) {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    commands.getByokTelemetryEnabled().then(setEnabled).catch(() => setEnabled(true));
+  }, []);
+
+  const toggle = useCallback(async () => {
+    const next = !(enabled ?? true);
+    setEnabled(next);
+    try {
+      await commands.setByokTelemetryEnabled(next);
+    } catch {
+      // Revert on failure so the toggle reflects persisted state.
+      setEnabled(!next);
+    }
+  }, [enabled]);
+
+  const on = enabled ?? true;
+
+  return (
+    <SettingsCard>
+      <div className="px-[22px] py-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <SectionEyebrow>{t("settings.privacy")}</SectionEyebrow>
+            <p className="text-[13px] font-medium text-text-primary mt-2">
+              {t("settings.shareUsage")}
+            </p>
+            <p className="text-[12px] text-text-muted leading-relaxed mt-1">
+              {t("settings.shareUsageDesc")}
+            </p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={on}
+            aria-label={t("settings.shareUsage")}
+            onClick={toggle}
+            className="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors cursor-pointer"
+            style={{
+              background: on
+                ? "var(--color-accent-indigo)"
+                : "var(--color-bg-tertiary)",
+            }}
+          >
+            <span
+              className="inline-block h-5 w-5 rounded-full bg-white shadow transition-transform"
+              style={{ transform: on ? "translateX(22px)" : "translateX(2px)" }}
+            />
+          </button>
+        </div>
+      </div>
+    </SettingsCard>
   );
 }
 

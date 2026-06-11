@@ -1,50 +1,11 @@
 import { useCallback } from "react";
 import { useChatStore } from "../stores/chatStore";
 import { useSessionStore } from "../stores/sessionStore";
-import { isPaywalled, useConsumerStore } from "../stores/consumerStore";
 import * as commands from "../lib/tauri-commands";
 import type {
   AssistantActionType,
   UserEventType,
 } from "../lib/tauri-commands";
-import { recordAssistantUiShape } from "../lib/spaShapeTelemetry";
-
-/**
- * Trial-modal trigger model:
- *
- * The user's *first* issue runs uninterrupted — we don't pop a modal
- * during their first taste of the product. The trigger is "next issue":
- * the first time they send a message in a session-id different from the
- * one we recorded as the first issue. Time-based triggers (trial date
- * passed, hidden cap-hit) are handled separately and not gated by this
- * flag.
- *
- * Reset by dev-reset-auth --fresh.
- */
-const FIRST_ISSUE_SESSION_KEY = "noah.firstIssueSessionId";
-const SECOND_ISSUE_MODAL_SHOWN_KEY = "noah.secondIssueModalShown";
-
-/** Returns true if this is the first message for what we should treat
- *  as a second-or-later issue (different sessionId from the first). */
-function maybeOpenSecondIssueModal(currentSessionId: string): void {
-  const consumer = useConsumerStore.getState();
-  const ent = consumer.entitlement;
-  if (!ent || ent.status !== "trialing") return;
-  try {
-    if (localStorage.getItem(SECOND_ISSUE_MODAL_SHOWN_KEY) === "1") return;
-    const firstSession = localStorage.getItem(FIRST_ISSUE_SESSION_KEY);
-    if (!firstSession) {
-      // First-ever message — record this session, do NOT show modal.
-      localStorage.setItem(FIRST_ISSUE_SESSION_KEY, currentSessionId);
-      return;
-    }
-    if (firstSession === currentSessionId) return; // still on issue #1
-    localStorage.setItem(SECOND_ISSUE_MODAL_SHOWN_KEY, "1");
-    consumer.openSubscribeModal("second_issue");
-  } catch {
-    // localStorage disabled — modal flags reset every app process; acceptable.
-  }
-}
 
 interface UseAgentReturn {
   sendMessage: (text: string) => Promise<void>;
@@ -126,52 +87,6 @@ export function useAgent(): UseAgentReturn {
       // are gated on the user still viewing this session. See `stillViewing`.
       const originSessionId = sessionId;
 
-      // Consumer path: check entitlement before sending.
-      // Paywalled → open modal, abort.
-      // Trial not yet started (ent null OR status='none') → start it.
-      // We call notifyIssueStarted even when ent is null because MainApp's
-      // refreshEntitlement() is async and may still be in flight when the
-      // seed auto-sends on fresh install. Server is idempotent — it only
-      // sets trial_started_at on the first call, so eager calls are safe.
-      const consumer = useConsumerStore.getState();
-      const ent = consumer.entitlement;
-      if (ent && isPaywalled(ent)) {
-        const variant = ent.status === "active" ? "cap_hit" : "paywall";
-        consumer.openSubscribeModal(variant);
-        return;
-      }
-      // Hidden trial-quota cap (≥ usage_limit while still trialing).
-      // Server-side denyReason returns "trial_quota"; mirror that here so
-      // the modal pops with the cap-hit variant ("you've hit your trial
-      // quota") without ever telling the user the specific number.
-      if (
-        ent &&
-        ent.status === "trialing" &&
-        ent.usage_used >= ent.usage_limit
-      ) {
-        consumer.openSubscribeModal("cap_hit");
-        return;
-      }
-      if (!ent || ent.status === "none") {
-        try {
-          // Pass conversation (session) id + the verbatim opening prompt so
-          // the backend records authoritative user text, not a proxy guess.
-          const started = await commands.consumerNotifyIssueStarted(
-            undefined,
-            originSessionId,
-            undefined,
-            trimmed,
-          );
-          if (started) consumer.setEntitlement(started);
-        } catch {
-          // non-fatal — trial start is best-effort; server is authoritative
-        }
-      }
-      // After ensuring trial is started, evaluate second-issue trigger
-      // *now* so that the first-issue session-id is recorded against
-      // the very first message, not later.
-      maybeOpenSecondIssueModal(sessionId);
-
       const prevChangeIds = new Set(changes.map((c) => c.id));
 
       addMessage({ role: "user", content: trimmed });
@@ -179,7 +94,6 @@ export function useAgent(): UseAgentReturn {
 
       try {
         const result = await commands.sendMessageV2(originSessionId, trimmed);
-        recordAssistantUiShape(result.assistant_ui);
         if (stillViewing(originSessionId)) {
           addMessage({
             role: "assistant",
@@ -194,18 +108,6 @@ export function useAgent(): UseAgentReturn {
         }
         await syncChanges(originSessionId, prevChangeIds);
       } catch (err) {
-        // 402 from the LLM proxy means paywall; 429 means usage cap.
-        // These global modal triggers fire regardless of which thread is
-        // currently visible — the user needs to know about billing/quota
-        // even if they navigated away.
-        const msg = err instanceof Error ? err.message : String(err);
-        if (/\b402\b/.test(msg)) {
-          useConsumerStore.getState().openSubscribeModal("paywall");
-          useConsumerStore.getState().refresh();
-        } else if (/\b429\b/.test(msg)) {
-          useConsumerStore.getState().openSubscribeModal("cap_hit");
-          useConsumerStore.getState().refresh();
-        }
         console.error("Agent communication error:", err);
         if (stillViewing(originSessionId)) {
           addMessage({
@@ -252,7 +154,6 @@ export function useAgent(): UseAgentReturn {
           confirmText,
           true,
         );
-        recordAssistantUiShape(result.assistant_ui);
         if (stillViewing(originSessionId)) {
           addMessage({
             role: "assistant",
@@ -306,7 +207,6 @@ export function useAgent(): UseAgentReturn {
           eventType,
           payload,
         );
-        recordAssistantUiShape(result.assistant_ui);
         if (stillViewing(originSessionId)) {
           addMessage({
             role: "assistant",

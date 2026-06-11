@@ -32,53 +32,6 @@
     "continue": "Continuar",
     "alreadyHaveAccount": "¿Ya tienes cuenta? Inicia sesión"
   },
-  "subscribe": {
-    "firstFixHeadline": "Mantén Noah en tu {device}",
-    "firstFixBody": "Elige un plan y Noah seguirá arreglando problemas para ti. Hoy no se cobra nada.",
-    "secondIssueHeadline": "Mantén Noah en tu {device}",
-    "secondIssueBody": "Elige un plan y Noah seguirá arreglando problemas. Sin cargo hasta el {date}.",
-    "paywallHeadline": "Bienvenido de vuelta",
-    "paywallBody": "Continúa donde lo dejaste. $4,99/mes o $50/año — cancela cuando quieras.",
-    "capHitHeadline": "Llegaste al límite de tu prueba",
-    "capHitBody": "Sigue con Noah — $4,99/mes o $50/año, cancela cuando quieras.",
-    "trustBadge": "$0 hoy · cancela cuando quieras · sin cargos durante la prueba",
-    "trustPill": "Prueba de 7 días · sin tarjeta",
-    "planAriaLabel": "Elige un plan",
-    "footnote": "$0 hoy · cancela cuando quieras · nunca cobramos durante tu prueba.",
-    "alreadyPaidNote": "¿Ya estás suscrito? Tu cuenta se actualizará en unos minutos.",
-    "plan": {
-      "annual": {
-        "label": "Anual",
-        "price": "$50",
-        "priceUnit": "/año",
-        "desc": "Ahorra 17% vs mensual",
-        "savingsBadge": "Mejor valor"
-      },
-      "monthly": {
-        "label": "Mensual",
-        "price": "$4,99",
-        "priceUnit": "/mes",
-        "desc": "Cancela cuando quieras"
-      }
-    },
-    "keepTrial": "Aún no — mantener mi prueba gratuita",
-    "subscribe": "Mantener Noah",
-    "opening": "Abriendo el pago…",
-    "fixContinuesNote": "Igual, Noah sigue arreglando esto en segundo plano.",
-    "scanReveal": {
-      "headline": "Empieza tu prueba gratis",
-      "body": "Noah arregla lo que encontramos — y se queda para lo que venga: almacenamiento, Wi-Fi, copias de seguridad, seguridad.",
-      "pill": "7 días gratis · cancela cuando quieras",
-      "cta": "Empezar prueba gratis",
-      "footnote": "$0 hoy · 7 días gratis, luego {price} · cancela cuando quieras — te avisaremos antes de la renovación",
-      "maybeLater": "Quizás más tarde"
-    }
-  },
-  "trialBanner": {
-    "lead": "Noah es tuyo para usar",
-    "activeUntil": "gratis hasta el {date}",
-    "subscribeCta": "Suscríbete para conservarlo"
-  },
   "sidebar": {
     "newChat": "Nuevo chat",
     "knowledge": "Conocimiento",
