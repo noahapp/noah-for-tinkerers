@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0"></a>
 </p>
 
 <p align="center">
@@ -98,13 +98,7 @@ Your key stays on your machine and is used only for direct Anthropic API calls.
 
 ## License
 
-[AGPL-3.0](LICENSE). This is the open-source, bring-your-own-API-key build of Noah.
-You're free to use, modify, and redistribute it under the AGPL — including the requirement
-that networked/hosted derivatives publish their source.
-
-**"Noah" is a trademark.** The license covers the *code*, not the *name*. See
-[TRADEMARK.md](TRADEMARK.md) before distributing a fork. Contributions are accepted under
-[CLA.md](CLA.md).
+Apache-2.0. This is the open-source, bring-your-own-API-key build of Noah.
 
 ---
 
