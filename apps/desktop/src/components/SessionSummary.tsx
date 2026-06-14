@@ -56,7 +56,7 @@ export function SessionSummary() {
           </div>
         )}
         {changes.length > 0 && (
-          <p className="text-[10px] text-text-muted mt-2">
+          <p className="text-micro text-text-muted mt-2">
             {t("sessionSummary.changesMade", { count: changes.filter((c) => !c.undone).length })}
           </p>
         )}

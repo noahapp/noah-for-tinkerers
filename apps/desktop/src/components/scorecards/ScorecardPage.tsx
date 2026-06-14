@@ -331,7 +331,7 @@ export function ScorecardPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-[10px] text-text-muted text-center mt-8">{t("health.footer")}</p>
+        <p className="text-micro text-text-muted text-center mt-8">{t("health.footer")}</p>
       </div>
     </div>
   );

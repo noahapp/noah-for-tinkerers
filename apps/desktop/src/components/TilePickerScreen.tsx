@@ -180,7 +180,7 @@ function PickStage({
                     <div className="text-sm font-medium text-text-primary leading-snug">
                       {t(tile.titleKey)}
                     </div>
-                    <div className="text-[11.5px] text-text-muted leading-relaxed mt-1">
+                    <div className="text-micro text-text-muted leading-relaxed mt-1">
                       {t(tile.descKey)}
                     </div>
                   </div>

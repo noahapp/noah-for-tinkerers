@@ -114,7 +114,7 @@ function PlaybookInline({ text }: { text: string }) {
         const bold = part.match(/^\*\*([^*]+)\*\*$/);
         if (bold) return <strong key={i} className="font-semibold">{bold[1]}</strong>;
         const code = part.match(/^`([^`]+)`$/);
-        if (code) return <code key={i} className="px-1.5 py-0.5 rounded bg-accent-blue/8 text-accent-blue text-[13px] font-mono">{code[1]}</code>;
+        if (code) return <code key={i} className="px-1.5 py-0.5 rounded bg-accent-blue/8 text-accent-blue text-caption font-mono">{code[1]}</code>;
         const link = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
         if (link) return <a key={i} href={link[2]} target="_blank" rel="noreferrer" className="text-accent-blue underline underline-offset-2">{link[1]}</a>;
         return <span key={i}>{part}</span>;
@@ -203,10 +203,10 @@ function PlaybookView({ content, entry }: { content: string; entry: KnowledgeEnt
             <h1 className="text-xl font-semibold text-text-primary">{pb.title}</h1>
             {pb.description && <p className="text-sm text-text-secondary mt-1">{pb.description}</p>}
             <div className="flex items-center gap-2 mt-3 flex-wrap">
-              {pb.platform && <span className="inline-flex items-center text-[11px] text-text-muted bg-bg-tertiary/60 rounded-full px-2 py-0.5">{platformLabel[pb.platform] ?? pb.platform}</span>}
-              {steps.length > 0 && <span className="inline-flex items-center text-[11px] text-text-muted bg-bg-tertiary/60 rounded-full px-2 py-0.5">{steps.length} step{steps.length !== 1 ? "s" : ""}</span>}
-              {pb.author && <span className="inline-flex items-center text-[11px] text-text-muted bg-bg-tertiary/60 rounded-full px-2 py-0.5">{pb.author}</span>}
-              {pb.lastReviewed && <span className="inline-flex items-center text-[11px] text-text-muted bg-bg-tertiary/60 rounded-full px-2 py-0.5">reviewed {pb.lastReviewed}</span>}
+              {pb.platform && <span className="inline-flex items-center text-micro text-text-muted bg-bg-tertiary/60 rounded-full px-2 py-0.5">{platformLabel[pb.platform] ?? pb.platform}</span>}
+              {steps.length > 0 && <span className="inline-flex items-center text-micro text-text-muted bg-bg-tertiary/60 rounded-full px-2 py-0.5">{steps.length} step{steps.length !== 1 ? "s" : ""}</span>}
+              {pb.author && <span className="inline-flex items-center text-micro text-text-muted bg-bg-tertiary/60 rounded-full px-2 py-0.5">{pb.author}</span>}
+              {pb.lastReviewed && <span className="inline-flex items-center text-micro text-text-muted bg-bg-tertiary/60 rounded-full px-2 py-0.5">reviewed {pb.lastReviewed}</span>}
             </div>
           </div>
         </div>
@@ -304,9 +304,9 @@ function PlaybookRow({
           {icon}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-medium text-text-primary truncate">{entry.title}</p>
+          <p className="text-caption font-medium text-text-primary truncate">{entry.title}</p>
           {entry.description && (
-            <p className="text-[11px] text-text-muted truncate mt-0.5">{entry.description}</p>
+            <p className="text-micro text-text-muted truncate mt-0.5">{entry.description}</p>
           )}
         </div>
       </button>
@@ -315,13 +315,13 @@ function PlaybookRow({
           <>
             <button
               onClick={() => { onDelete(entry.path); setConfirmDelete(false); }}
-              className="px-2 py-1 rounded text-[11px] font-medium text-accent-red bg-accent-red/10 hover:bg-accent-red/20 transition-colors cursor-pointer"
+              className="px-2 py-1 rounded text-micro font-medium text-accent-red bg-accent-red/10 hover:bg-accent-red/20 transition-colors cursor-pointer"
             >
               {t("knowledgePanel.confirm")}
             </button>
             <button
               onClick={() => setConfirmDelete(false)}
-              className="px-2 py-1 rounded text-[11px] text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+              className="px-2 py-1 rounded text-micro text-text-muted hover:text-text-primary transition-colors cursor-pointer"
             >
               {t("knowledgePanel.cancel")}
             </button>
@@ -362,9 +362,9 @@ function PlaybookCard({
         {icon}
       </div>
       <div className="px-3.5 py-3 flex-1 flex flex-col">
-        <p className="text-[13px] font-medium text-text-primary line-clamp-2 leading-snug">{entry.title}</p>
+        <p className="text-caption font-medium text-text-primary line-clamp-2 leading-snug">{entry.title}</p>
         {entry.description && (
-          <p className="text-[11px] text-text-muted mt-1.5 line-clamp-2 leading-relaxed">{entry.description}</p>
+          <p className="text-micro text-text-muted mt-1.5 line-clamp-2 leading-relaxed">{entry.description}</p>
         )}
       </div>
     </button>
@@ -552,7 +552,7 @@ export function KnowledgeView({ onNewKnowledge }: { onNewKnowledge?: () => void 
           </div>
           <button
             onClick={() => onNewKnowledge?.()}
-            className="px-3 py-1.5 rounded-lg border border-border-primary text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/40 transition-colors cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-border-primary text-caption text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/40 transition-colors cursor-pointer"
           >
             {t("knowledgePanel.newKnowledge")}
           </button>
@@ -567,7 +567,7 @@ export function KnowledgeView({ onNewKnowledge }: { onNewKnowledge?: () => void 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search playbooks..."
-            className="w-full pl-9 pr-3 py-2 rounded-lg bg-bg-input border border-border-primary text-[13px] text-text-primary placeholder-text-muted outline-none focus:border-accent-blue/40 transition-colors"
+            className="w-full pl-9 pr-3 py-2 rounded-lg bg-bg-input border border-border-primary text-caption text-text-primary placeholder-text-muted outline-none focus:border-accent-blue/40 transition-colors"
             onKeyDown={(e) => {
               if (e.key === "Escape") { setSearchQuery(""); searchRef.current?.blur(); }
             }}
@@ -593,7 +593,7 @@ export function KnowledgeView({ onNewKnowledge }: { onNewKnowledge?: () => void 
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`px-3 py-2 text-[13px] border-b-2 -mb-px cursor-pointer transition-colors ${
+                  className={`px-3 py-2 text-caption border-b-2 -mb-px cursor-pointer transition-colors ${
                     active
                       ? "text-text-primary border-accent-blue font-medium"
                       : "text-text-muted border-transparent hover:text-text-secondary"

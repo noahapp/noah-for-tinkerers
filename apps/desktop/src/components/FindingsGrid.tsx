@@ -64,11 +64,11 @@ export function FindingsGrid({ findings }: { findings: AssistantFinding[] }) {
                       : undefined,
                 }}
               >
-                <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-text-muted truncate">
+                <span className="text-micro font-semibold uppercase tracking-[0.12em] text-text-muted truncate">
                   {f.label}
                 </span>
                 <span
-                  className="text-[22px] font-bold leading-[1.15] tabular-nums truncate"
+                  className="text-title font-bold leading-[1.15] tabular-nums truncate"
                   style={{
                     color: toneColor[f.tone ?? "neutral"],
                     letterSpacing: "-0.02em",
@@ -78,7 +78,7 @@ export function FindingsGrid({ findings }: { findings: AssistantFinding[] }) {
                   {f.value}
                 </span>
                 {f.sub && (
-                  <span className="text-[11px] text-text-muted leading-snug truncate mt-0.5">
+                  <span className="text-micro text-text-muted leading-snug truncate mt-0.5">
                     {f.sub}
                   </span>
                 )}

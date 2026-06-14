@@ -136,7 +136,7 @@ function StepIndicator({ step, total, label, allSteps, emoji, playbookName }: St
                 {/* Dot */}
                 <div
                   className={`
-                    w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold
+                    w-6 h-6 rounded-full flex items-center justify-center text-micro font-semibold
                     transition-all duration-300 flex-shrink-0
                     ${isCompleted
                       ? "bg-accent-blue text-white"
@@ -157,7 +157,7 @@ function StepIndicator({ step, total, label, allSteps, emoji, playbookName }: St
                 {/* Label below dot */}
                 <span
                   className={`
-                    text-[10px] mt-1 text-center leading-tight max-w-[64px] line-clamp-2
+                    text-micro mt-1 text-center leading-tight max-w-[64px] line-clamp-2
                     ${isCurrent ? "text-accent-blue font-medium" : isCompleted ? "text-text-secondary" : "text-text-muted"}
                   `}
                 >
@@ -481,14 +481,14 @@ function ToolCallItem({ toolCall }: { toolCall: ToolCall }) {
         <div className="px-3 py-2 border-t border-border-primary text-xs space-y-2">
           <div>
             <span className="text-text-muted">Input:</span>
-            <pre className="mt-1 p-2 rounded bg-bg-primary text-text-secondary font-mono text-[11px] overflow-x-auto whitespace-pre-wrap break-all">
+            <pre className="mt-1 p-2 rounded bg-bg-primary text-text-secondary font-mono text-micro overflow-x-auto whitespace-pre-wrap break-all">
               {JSON.stringify(toolCall.input, null, 2)}
             </pre>
           </div>
           {toolCall.result && (
             <div>
               <span className="text-text-muted">Result:</span>
-              <pre className="mt-1 p-2 rounded bg-bg-primary text-text-secondary font-mono text-[11px] overflow-x-auto whitespace-pre-wrap break-all">
+              <pre className="mt-1 p-2 rounded bg-bg-primary text-text-secondary font-mono text-micro overflow-x-auto whitespace-pre-wrap break-all">
                 {toolCall.result}
               </pre>
             </div>
@@ -673,7 +673,7 @@ function ActionCard({
 
   return (
     <div className="group animate-fade-in">
-      <div className="relative rounded-[14px] border border-surface-card-border bg-surface-card surface-card overflow-hidden">
+      <div className="relative rounded-btn border border-surface-card-border bg-surface-card surface-card overflow-hidden">
         {/* Aurora top hairline — see UserQuestionCard for rationale.
             Suppressed once the action is taken; the commit "Sent" pill
             then becomes the focal point. */}
@@ -746,7 +746,7 @@ function ActionCard({
             onClick={onDoIt}
             disabled={actionTaken || isProcessing}
             className={`
-              w-full text-[14px] font-semibold cursor-pointer
+              w-full text-body font-semibold cursor-pointer
               flex items-center justify-center gap-2
               ${
                 actionTaken
@@ -783,7 +783,7 @@ function ActionCard({
           </button>
         </div>
       </div>
-      <div className="text-[10px] mt-1 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+      <div className="text-micro mt-1 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150">
         {formatTime(timestamp)}
       </div>
     </div>
@@ -845,7 +845,7 @@ function UserQuestionCard({
 
   return (
     <div className="group animate-fade-in">
-      <div className="relative rounded-[14px] border border-surface-card-border bg-surface-card surface-card overflow-hidden">
+      <div className="relative rounded-btn border border-surface-card-border bg-surface-card surface-card overflow-hidden">
         {/* Aurora top hairline — carries Noah identity on cards that are
             asking the user to act. Suppressed once the question is
             answered (the commit-pill below is then the focal point). */}
@@ -951,7 +951,7 @@ function UserQuestionCard({
                 ? "btn-done"
                 : isProcessing || !canSubmit
                   ? "bg-bg-tertiary text-text-muted cursor-not-allowed"
-                  : "btn-action"
+                  : "btn-soft"
             }`}
           >
             {actionTaken && (
@@ -971,7 +971,7 @@ function UserQuestionCard({
           )}
         </div>
       </div>
-      <div className="text-[10px] mt-1 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+      <div className="text-micro mt-1 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150">
         {formatTime(timestamp)}
       </div>
     </div>
@@ -1032,7 +1032,7 @@ function DoneCard({
 
   return (
     <div className="group animate-fade-in">
-      <div className="rounded-[14px] border border-surface-card-border bg-surface-card surface-card overflow-hidden">
+      <div className="rounded-btn border border-surface-card-border bg-surface-card surface-card overflow-hidden">
         <div className={`px-5 pt-4 ${findings && findings.length > 0 ? "pb-2" : "pb-3"}`}>
           <span className="eyebrow commit mb-2">{t("chat.result")}</span>
           <div className="text-base text-text-primary leading-relaxed mt-1">
@@ -1074,7 +1074,7 @@ function DoneCard({
           </span>
         )}
 
-        <span className="text-[10px] text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        <span className="text-micro text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150">
           {formatTime(timestamp)}
         </span>
       </div>
@@ -1101,7 +1101,7 @@ function InfoCard({
           </div>
         </div>
       </div>
-      <div className="text-[10px] mt-1 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+      <div className="text-micro mt-1 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150">
         {formatTime(timestamp)}
       </div>
     </div>
@@ -1124,7 +1124,7 @@ function MessageBubble({ message }: { message: Message }) {
               {message.content}
             </div>
           </div>
-          <div className="text-[10px] mt-1 text-text-muted text-right opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          <div className="text-micro mt-1 text-text-muted text-right opacity-0 group-hover:opacity-100 transition-opacity duration-150">
             {formatTime(message.timestamp)}
           </div>
         </div>
@@ -1146,7 +1146,7 @@ function MessageBubble({ message }: { message: Message }) {
         </div>
       )}
 
-      <div className="text-[10px] mt-1.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+      <div className="text-micro mt-1.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150">
         {formatTime(message.timestamp)}
       </div>
     </div>
@@ -1540,7 +1540,7 @@ function ActivityLog({ activity, defaultExpanded, t }: { activity: ActivityEntry
           {expanded ? t("chat.hideUnderTheHood") : t("chat.underTheHood")}
         </button>
         {!expanded && (
-          <span className="text-[10px] text-text-muted/50">{activity.length} events</span>
+          <span className="text-micro text-text-muted/50">{activity.length} events</span>
         )}
       </div>
       {expanded && (
@@ -1611,13 +1611,13 @@ function SuggestionCards({
           key={s.label}
           onClick={() => onSelect(s.label)}
           disabled={disabled}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] text-text-secondary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-caption text-text-secondary hover:text-text-primary transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             background: "var(--color-bg-secondary)",
             border: "1px solid var(--color-surface-card-border)",
           }}
         >
-          <span className="text-[13px] leading-none">{s.icon}</span>
+          <span className="text-caption leading-none">{s.icon}</span>
           <span className="truncate max-w-[260px]">{s.label}</span>
         </button>
       ))}

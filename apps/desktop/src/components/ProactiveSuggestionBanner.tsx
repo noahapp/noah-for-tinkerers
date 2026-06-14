@@ -111,13 +111,13 @@ export function ProactiveSuggestionBanner() {
       <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={handleDismiss}
-          className="text-[10px] text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+          className="text-micro text-text-muted hover:text-text-primary transition-colors cursor-pointer"
         >
           Dismiss
         </button>
         <button
           onClick={handleTellMore}
-          className="px-3 py-1 rounded-md bg-accent-purple text-white text-[11px] font-medium hover:bg-accent-purple/80 transition-colors cursor-pointer"
+          className="px-3 py-1 rounded-md bg-accent-purple text-white text-micro font-medium hover:bg-accent-purple/80 transition-colors cursor-pointer"
         >
           Tell me more
         </button>

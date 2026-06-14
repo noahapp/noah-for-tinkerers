@@ -37,7 +37,7 @@ export function FleetConnectionCard({ fleetStatus, setFleetStatus, t }: FleetCon
         <span className="text-accent-green text-sm">{"\u2713"}</span>
         <div>
           <p className="text-sm text-text-primary font-medium">{fleetStatus?.fleet_name || t("health.fleetConnected")}</p>
-          <p className="text-[10px] text-text-muted">{t("health.fleetSyncDesc")}</p>
+          <p className="text-micro text-text-muted">{t("health.fleetSyncDesc")}</p>
         </div>
       </div>
     );

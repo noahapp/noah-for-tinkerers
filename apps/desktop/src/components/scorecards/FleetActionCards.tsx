@@ -56,10 +56,10 @@ function PlaybookPreviewCard({ action, t, onDismiss, onRemove }: {
           {steps.length > 0 && (
             <div className="mt-2 space-y-0.5">
               {steps.slice(0, 5).map((step, i) => (
-                <p key={i} className="text-[10px] text-text-muted">{step}</p>
+                <p key={i} className="text-micro text-text-muted">{step}</p>
               ))}
               {steps.length > 5 && (
-                <p className="text-[10px] text-text-muted">+ {steps.length - 5} more steps</p>
+                <p className="text-micro text-text-muted">+ {steps.length - 5} more steps</p>
               )}
             </div>
           )}

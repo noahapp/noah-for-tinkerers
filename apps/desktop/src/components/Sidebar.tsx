@@ -222,7 +222,7 @@ function SessionItem({
         <p className={`text-sm leading-snug truncate ${isUnread ? "font-semibold text-text-primary" : ""}`}>
           {session.title || t("sidebar.untitledSession")}
         </p>
-        <p className="text-[10px] text-text-muted mt-0.5 flex items-center gap-1">
+        <p className="text-micro text-text-muted mt-0.5 flex items-center gap-1">
           <span>{formatDate(session.created_at, t, locale)}</span>
           {session.resolved === true && (
             <Check size={10} strokeWidth={2.5} className="text-accent-green" />

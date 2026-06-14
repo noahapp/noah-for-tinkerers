@@ -43,10 +43,10 @@ export function SettingsPanel() {
         {/* Page header */}
         <header className="mb-7">
           <SectionEyebrow>{t("settings.eyebrow")}</SectionEyebrow>
-          <h1 className="text-[28px] font-bold tracking-[-0.028em] text-text-primary mt-2 mb-1">
+          <h1 className="text-display font-bold tracking-[-0.028em] text-text-primary mt-2 mb-1">
             {t("settings.title")}
           </h1>
-          <p className="text-[13.5px] text-text-secondary leading-[1.55]">
+          <p className="text-caption text-text-secondary leading-[1.55]">
             {t("settings.subtitle")}
           </p>
         </header>
@@ -60,7 +60,7 @@ export function SettingsPanel() {
             <div className="px-[22px] py-5">
               <div className="flex items-center justify-between mb-3">
                 <SectionEyebrow>{t("settings.appearance")}</SectionEyebrow>
-                <span className="text-[11.5px] text-text-muted whitespace-nowrap">
+                <span className="text-micro text-text-muted whitespace-nowrap">
                   {themePref === "system"
                     ? t("settings.followsOSShort")
                     : themePref === "light"
@@ -148,13 +148,13 @@ function ApiKeySection({ t }: { t: Tt }) {
       <div className="px-[22px] py-5">
         <div className="flex items-center justify-between mb-3">
           <SectionEyebrow>{t("settings.apiKey")}</SectionEyebrow>
-          <span className="text-[11.5px] text-text-muted whitespace-nowrap">
+          <span className="text-micro text-text-muted whitespace-nowrap">
             {hasKey
               ? t("settings.apiKeySet")
               : t("settings.apiKeyNotSet")}
           </span>
         </div>
-        <p className="text-[12.5px] text-text-muted leading-relaxed mb-3">
+        <p className="text-caption text-text-muted leading-relaxed mb-3">
           {t("settings.apiKeyDesc")}
         </p>
         <input
@@ -179,7 +179,7 @@ function ApiKeySection({ t }: { t: Tt }) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="btn-commit mt-3 px-3.5 py-2 rounded-[10px] text-[12.5px] font-semibold cursor-pointer disabled:opacity-50"
+          className="btn-commit mt-3 px-3.5 py-2 rounded-input text-caption font-semibold cursor-pointer disabled:opacity-50"
         >
           {saving ? t("settings.apiKeySaving") : t("settings.apiKeySave")}
         </button>
@@ -215,10 +215,10 @@ function PrivacySection({ t }: { t: Tt }) {
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <SectionEyebrow>{t("settings.privacy")}</SectionEyebrow>
-            <p className="text-[13px] font-medium text-text-primary mt-2">
+            <p className="text-caption font-medium text-text-primary mt-2">
               {t("settings.shareUsage")}
             </p>
-            <p className="text-[12px] text-text-muted leading-relaxed mt-1">
+            <p className="text-caption text-text-muted leading-relaxed mt-1">
               {t("settings.shareUsageDesc")}
             </p>
           </div>
@@ -319,7 +319,7 @@ function AboutCard({ version, t }: { version: string; t: Tt }) {
         <div className="flex items-center justify-between mb-3">
           <SectionEyebrow>{t("settings.about")}</SectionEyebrow>
           <span
-            className="text-[11.5px] whitespace-nowrap"
+            className="text-micro whitespace-nowrap"
             style={{ color: statusColor }}
           >
             {statusLine}
@@ -328,22 +328,22 @@ function AboutCard({ version, t }: { version: string; t: Tt }) {
         <div className="flex items-center gap-3.5">
           <NoahMark size={28} />
           <div className="flex-1 min-w-0">
-            <div className="text-[14px] font-semibold text-text-primary leading-tight">
+            <div className="text-body font-semibold text-text-primary leading-tight">
               Noah
             </div>
-            <div className="text-[12.5px] text-text-muted mt-0.5">
+            <div className="text-caption text-text-muted mt-0.5">
               {t("settings.versionLine", { version: version || "…" })}
             </div>
           </div>
           {state === "available" && newVersion ? (
             <button
               onClick={runInstall}
-              className="btn-commit px-3.5 py-2 rounded-[10px] text-[12.5px] font-semibold cursor-pointer whitespace-nowrap"
+              className="btn-commit px-3.5 py-2 rounded-input text-caption font-semibold cursor-pointer whitespace-nowrap"
             >
               {t("settings.updateNow", { version: newVersion })}
             </button>
           ) : state === "downloading" || state === "installing" ? (
-            <span className="px-3.5 py-2 text-[12.5px] text-text-muted whitespace-nowrap">
+            <span className="px-3.5 py-2 text-caption text-text-muted whitespace-nowrap">
               {state === "downloading"
                 ? t("settings.downloading")
                 : t("settings.installing")}
@@ -352,7 +352,7 @@ function AboutCard({ version, t }: { version: string; t: Tt }) {
             <button
               onClick={runCheck}
               disabled={state === "checking"}
-              className="px-3 py-1.5 rounded-lg bg-bg-tertiary text-[12px] text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
+              className="px-3 py-1.5 rounded-lg bg-bg-tertiary text-caption text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
             >
               {state === "checking"
                 ? t("settings.checking")
@@ -383,7 +383,7 @@ function SettingsCard({ children }: { children: React.ReactNode }) {
 // ── Section eyebrow with aurora hairline ─────────────────────────────
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-[7px] text-[10.5px] font-bold uppercase tracking-[0.14em] text-text-muted whitespace-nowrap">
+    <span className="inline-flex items-center gap-[7px] text-micro font-bold uppercase tracking-[0.14em] text-text-muted whitespace-nowrap">
       <span
         className="block w-3 h-[2px] rounded-[1px]"
         style={{ background: "var(--aurora)" }}
@@ -420,7 +420,7 @@ function AppearanceToggle({
     >
       {/* sliding thumb — easing matches Apple's "sub-100ms feel" curve */}
       <div
-        className="absolute top-1 bottom-1 rounded-[9px] pointer-events-none"
+        className="absolute top-1 bottom-1 rounded-input pointer-events-none"
         style={{
           left: `calc(${(idx / 3) * 100}% + 4px)`,
           width: `calc(${100 / 3}% - 8px)`,
@@ -437,7 +437,7 @@ function AppearanceToggle({
           <button
             key={o.id}
             onClick={() => onChange(o.id)}
-            className={`relative inline-flex items-center justify-center gap-[7px] py-2 px-1.5 rounded-[9px] text-[12.5px] cursor-pointer transition-colors ${
+            className={`relative inline-flex items-center justify-center gap-[7px] py-2 px-1.5 rounded-input text-caption cursor-pointer transition-colors ${
               active
                 ? "font-semibold"
                 : "font-medium text-text-muted hover:text-text-secondary"
@@ -470,7 +470,7 @@ function ActionLink({
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-left cursor-pointer transition-colors hover:bg-bg-primary group"
+      className="flex items-center gap-3 w-full px-3.5 py-3 rounded-input text-left cursor-pointer transition-colors hover:bg-bg-primary group"
     >
       <span
         className="inline-flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0"
@@ -481,7 +481,7 @@ function ActionLink({
       >
         {icon}
       </span>
-      <span className="flex-1 text-[13px] font-medium text-text-primary tracking-[-0.005em]">
+      <span className="flex-1 text-caption font-medium text-text-primary tracking-[-0.005em]">
         {label}
       </span>
       <ChevronIcon className="text-text-muted group-hover:text-text-secondary transition-colors" />

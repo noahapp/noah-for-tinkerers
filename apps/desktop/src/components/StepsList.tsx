@@ -27,7 +27,7 @@ export function StepsList({ steps }: { steps: AssistantStep[] }) {
               <StepBullet index={i + 1} status={status} />
               <div className="flex-1 min-w-0 pt-0.5">
                 <div
-                  className={`text-[15px] leading-snug ${
+                  className={`text-body leading-snug ${
                     status === "done"
                       ? "text-text-muted line-through"
                       : "text-text-primary font-medium"
@@ -41,7 +41,7 @@ export function StepsList({ steps }: { steps: AssistantStep[] }) {
                     `tool` field for telemetry / future debug surfaces,
                     but the chat surface only shows the human detail. */}
                 {s.detail && (
-                  <div className="text-[12px] text-text-muted leading-snug mt-0.5">
+                  <div className="text-caption text-text-muted leading-snug mt-0.5">
                     {s.detail}
                   </div>
                 )}
@@ -87,7 +87,7 @@ function StepBullet({
     return (
       <span
         aria-hidden
-        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[12px] font-semibold shrink-0"
+        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-caption font-semibold shrink-0"
         style={{
           background: "var(--aurora)",
           boxShadow: "var(--aurora-glow)",
@@ -102,7 +102,7 @@ function StepBullet({
   return (
     <span
       aria-hidden
-      className="w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-semibold shrink-0"
+      className="w-6 h-6 rounded-full flex items-center justify-center text-caption font-semibold shrink-0"
       style={{
         border: "1.5px solid rgba(99, 102, 241, 0.3)",
         color: "var(--color-accent-indigo)",

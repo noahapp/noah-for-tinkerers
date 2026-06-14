@@ -35,10 +35,10 @@ function ChangeItem({ change }: { change: ChangeEntry }) {
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="px-1.5 py-0.5 rounded bg-accent-purple/15 text-accent-purple text-[10px] font-mono">
+            <span className="px-1.5 py-0.5 rounded bg-accent-purple/15 text-accent-purple text-micro font-mono">
               {change.tool_name}
             </span>
-            <span className="text-[10px] text-text-muted">{time}</span>
+            <span className="text-micro text-text-muted">{time}</span>
           </div>
           <p
             className={`text-xs text-text-secondary leading-relaxed ${
@@ -53,7 +53,7 @@ function ChangeItem({ change }: { change: ChangeEntry }) {
           disabled={change.undone}
           title={change.undone ? t("changeLog.tooltipUndone") : t("changeLog.tooltipUndo")}
           className={`
-            flex-shrink-0 px-2 py-1 rounded-md text-[10px] font-medium
+            flex-shrink-0 px-2 py-1 rounded-md text-micro font-medium
             transition-colors cursor-pointer
             ${
               change.undone
@@ -151,7 +151,7 @@ export function ChangeLog() {
         {/* Footer summary */}
         {changes.length > 0 && (
           <div className="px-4 py-2.5 border-t border-border-primary">
-            <p className="text-[10px] text-text-muted">
+            <p className="text-micro text-text-muted">
               {t("changeLog.totalActions", { count: changes.length })}
               {" \u00B7 "}
               {t("changeLog.totalUndone", { count: changes.filter((c) => c.undone).length })}
