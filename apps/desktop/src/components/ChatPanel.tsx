@@ -1644,19 +1644,19 @@ function WelcomeHero({ hasContextual, learnMode }: { hasContextual: boolean; lea
       <NoahIcon className="relative w-16 h-16 rounded-2xl mb-4" alt="Noah" />
       {useDirective ? (
         <>
-          <p className="relative text-2xl font-semibold text-text-primary tracking-tight">
+          <p className="relative text-display font-extrabold text-text-primary">
             {t("welcome.directive.line1")}
           </p>
-          <p className="relative text-2xl font-semibold tracking-tight">
+          <p className="relative text-display font-extrabold">
             <span className="aurora-text">{t("welcome.directive.line2")}</span>
           </p>
         </>
       ) : (
         <>
-          <p className="relative text-2xl font-semibold text-text-primary mb-1 tracking-tight">
+          <p className="relative text-title font-bold text-text-primary mb-1">
             {learnMode ? t("welcome.learnGreeting") : t("welcome.greeting")}
           </p>
-          <p className="relative text-base text-text-secondary">
+          <p className="relative text-body-l text-text-secondary">
             {learnMode ? t("welcome.learnSubtitle") : t("welcome.subtitleContextual")}
           </p>
         </>
