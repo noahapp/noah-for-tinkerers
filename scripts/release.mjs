@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readdir, readFile, writeFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { tmpdir, homedir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
@@ -259,8 +259,57 @@ async function generateLatestJson(version, tag, artifacts) {
   return latestPath;
 }
 
+function expandHome(p) {
+  if (!p) return p;
+  if (p === "~") return homedir();
+  if (p.startsWith("~/")) return path.join(homedir(), p.slice(2));
+  return p;
+}
+
+// Load BYOK release signing secrets from a local, git-ignored env file so they
+// no longer have to live in the shell profile. Simple KEY=VALUE list at
+// ~/.noah-signing/byok.env (override with NOAH_SIGNING_ENV). This is the
+// BYOK-only signing key (CE75B852), SEPARATE from the paid app's legacy key in
+// ~/.noah-signing/desktop.env. Values already in the environment win, so CI
+// secrets and one-off `export`s still override the file.
+function loadSigningEnv() {
+  const envPath = expandHome(process.env.NOAH_SIGNING_ENV || "~/.noah-signing/byok.env");
+  if (!existsSync(envPath)) {
+    console.log(`==> No signing env file at ${envPath} — relying on current environment`);
+    return;
+  }
+  let loaded = 0;
+  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let val = trimmed.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    if (!process.env[key]) {
+      process.env[key] = val;
+      loaded += 1;
+    }
+  }
+  // The updater private key may be referenced by file path instead of inlined.
+  if (!process.env.TAURI_SIGNING_PRIVATE_KEY && process.env.TAURI_SIGNING_PRIVATE_KEY_FILE) {
+    const keyPath = expandHome(process.env.TAURI_SIGNING_PRIVATE_KEY_FILE);
+    if (existsSync(keyPath)) {
+      process.env.TAURI_SIGNING_PRIVATE_KEY = readFileSync(keyPath, "utf8").trim();
+    }
+  }
+  console.log(`==> Loaded ${loaded} signing var(s) from ${envPath}`);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  loadSigningEnv();
   const version = await readVersion();
   const tag = args.tag || `v${version}`;
   const uploading = args.mode === "upload";
