@@ -270,8 +270,10 @@ function expandHome(p) {
 // no longer have to live in the shell profile. Simple KEY=VALUE list at
 // ~/.noah-signing/byok.env (override with NOAH_SIGNING_ENV). This is the
 // BYOK-only signing key (CE75B852), SEPARATE from the paid app's legacy key in
-// ~/.noah-signing/desktop.env. Values already in the environment win, so CI
-// secrets and one-off `export`s still override the file.
+// ~/.noah-signing/desktop.env. byok.env is AUTHORITATIVE: it overrides the
+// ambient shell env (which may still export the legacy paid key and would
+// otherwise mis-sign a BYOK build). This is local-only — CI has no byok.env
+// (early return below), so CI secrets are never touched.
 function loadSigningEnv() {
   const envPath = expandHome(process.env.NOAH_SIGNING_ENV || "~/.noah-signing/byok.env");
   if (!existsSync(envPath)) {
@@ -292,19 +294,19 @@ function loadSigningEnv() {
     ) {
       val = val.slice(1, -1);
     }
-    if (!process.env[key]) {
-      process.env[key] = val;
-      loaded += 1;
-    }
+    process.env[key] = val; // authoritative: override the shell env
+    loaded += 1;
   }
-  // The updater private key may be referenced by file path instead of inlined.
-  if (!process.env.TAURI_SIGNING_PRIVATE_KEY && process.env.TAURI_SIGNING_PRIVATE_KEY_FILE) {
+  // byok.env pins the key by file path. Inline it AND clobber any stale inline
+  // key (e.g. the legacy key still exported in the shell) so Tauri signs with
+  // the BYOK key, not whatever the shell had.
+  if (process.env.TAURI_SIGNING_PRIVATE_KEY_FILE) {
     const keyPath = expandHome(process.env.TAURI_SIGNING_PRIVATE_KEY_FILE);
     if (existsSync(keyPath)) {
       process.env.TAURI_SIGNING_PRIVATE_KEY = readFileSync(keyPath, "utf8").trim();
     }
   }
-  console.log(`==> Loaded ${loaded} signing var(s) from ${envPath}`);
+  console.log(`==> Loaded ${loaded} signing var(s) from ${envPath} (authoritative over shell)`);
 }
 
 async function main() {
