@@ -58,6 +58,21 @@ jobs:
       - name: Build and upload release
         run: node scripts/release.mjs --upload ${{ inputs.tag && format('--tag {0}', inputs.tag) || '' }} --skip-install
         env:
+          # BYOK channel (xuy/noah → onnoah.app/byok). These match release.mjs's
+          # defaults; set explicitly so the workflow can never drift onto the
+          # paid `desktop` path.
+          NOAH_RELEASE_REPO: xuy/noah
+          NOAH_UPDATE_CHANNEL: byok
+          # Updater signing — the rotated BYOK-only key (CE75B852), NOT the paid
+          # legacy key. Set as repo secrets on xuy/noah.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # R2 mirror that feeds onnoah.app/byok/latest.json. Without these the
+          # Windows/Linux artifacts + manifest land on the GitHub release but
+          # never reach R2 (wrangler auth fails → upload silently skips). Add
+          # CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID as repo secrets to make
+          # this fully self-serve; until then, run `scripts/r2-sync.mjs <tag>`
+          # locally after CI is green.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
