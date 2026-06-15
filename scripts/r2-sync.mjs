@@ -14,7 +14,7 @@
 
 import { spawn } from "node:child_process";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -23,6 +23,25 @@ const REPO = process.env.NOAH_RELEASE_REPO ?? "xuy/noah";
 const CHANNEL = process.env.NOAH_UPDATE_CHANNEL ?? "byok";
 const LATEST_JSON_ASSET = `${CHANNEL}-latest.json`;
 const MIRROR_STABLE_INSTALLERS = process.env.NOAH_MIRROR_STABLE_INSTALLERS === "1";
+
+// GitHub normalizes spaces in release-asset names to dots ("Noah for Tinkerers"
+// → "Noah.for.Tinkerers"), but the updater manifest and release.mjs's direct R2
+// uploads use the ORIGINAL spaced filename. If we keyed R2 by the GitHub asset
+// name, the Windows/Linux updater URLs would 404. Recover the spaced name from
+// the productName so R2 keys match the manifest exactly.
+const PRODUCT_NAME = (() => {
+  try {
+    const conf = JSON.parse(
+      readFileSync(path.join(process.cwd(), "apps/desktop/src-tauri/tauri.conf.json"), "utf8"),
+    );
+    return conf.productName || "";
+  } catch {
+    return "";
+  }
+})();
+const DOTTED_NAME = PRODUCT_NAME.replace(/ /g, ".");
+const unDot = (name) =>
+  PRODUCT_NAME && DOTTED_NAME !== PRODUCT_NAME ? name.split(DOTTED_NAME).join(PRODUCT_NAME) : name;
 
 // Stable asset name → R2 content-type.
 const ASSETS = {
@@ -96,11 +115,12 @@ async function main() {
       continue;
     }
 
+    const key = unDot(name); // spaced name the manifest references
     await run("npx", [
-      "wrangler", "r2", "object", "put", `${BUCKET}/${CHANNEL}/${tag}/${name}`,
+      "wrangler", "r2", "object", "put", `${BUCKET}/${CHANNEL}/${tag}/${key}`,
       `--file=${src}`, `--content-type=${contentTypeFor(name)}`, "--remote",
     ]);
-    console.log(`    R2: ${CHANNEL}/${tag}/${name}`);
+    console.log(`    R2: ${CHANNEL}/${tag}/${key}`);
     synced++;
 
     if (MIRROR_STABLE_INSTALLERS && ASSETS[name]) {
