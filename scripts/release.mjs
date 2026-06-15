@@ -79,9 +79,16 @@ function parseArgs(argv) {
 
 function runCommand(command, args) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const isWin = process.platform === "win32";
+    // On Windows we spawn through the shell so .cmd shims (pnpm/npx) resolve,
+    // but Node does NOT auto-quote array args for shell:true — so any arg with a
+    // space (our "Noah for Tinkerers_*.msi" bundle paths) gets word-split by the
+    // shell, and gh/wrangler receive garbage. Quote space-containing args so the
+    // paths arrive intact. (No-op on macOS/Linux where shell is false.)
+    const finalArgs = isWin ? args.map((a) => (/\s/.test(a) ? `"${a}"` : a)) : args;
+    const child = spawn(command, finalArgs, {
       stdio: "inherit",
-      shell: process.platform === "win32",
+      shell: isWin,
       cwd: ROOT,
     });
     child.on("error", reject);
