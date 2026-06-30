@@ -14,7 +14,7 @@ open-source, bring-your-own-key build of Noah: a desktop app that diagnoses and 
 computer problems in plain English, with a safety harness around every action.
 
 You bring an Anthropic API key; Noah talks to Claude directly from your machine. No
-subscription, no account, no backend.
+subscription and no account — just the app, your key, and your computer.
 
 > ### 👉 Just want it to work?
 > **[onnoah.app](https://onnoah.app)** is the commercial version — the same app, fully
@@ -26,7 +26,8 @@ subscription, no account, no backend.
 > they'll happily `rm -rf` the wrong thing — and sandboxed tools can't touch the real system
 > you're trying to fix. Noah is the middle path: a real desktop agent that runs read-only
 > diagnostics first, shows you the plan, gates destructive actions behind explicit approval,
-> and keeps boot config, firmware, and security software permanently off-limits.
+> and hard-blocks the truly catastrophic ones outright (wiping your home folder or keychains,
+> erasing a disk).
 
 <p align="center">
   <img src="docs/images/noah-hero.png" width="800" alt="Noah diagnosing a slow computer, finding runaway processes, and fixing the issue in one click" />
@@ -40,7 +41,7 @@ subscription, no account, no backend.
 3. **Noah shows you the plan** — what it found and what it wants to do
 4. **You approve** — Noah handles the rest and confirms the fix
 
-Every action is logged. Dangerous operations require your explicit approval. Noah never touches boot config, firmware, security software, or system-protected files.
+Every action is logged and reversible. Risky operations require your explicit approval; the truly catastrophic ones — wiping your home folder or keychains, erasing a disk — are blocked outright and can't be approved away.
 
 ## Beyond chat: Health, Playbooks, Auto-Heal
 
@@ -84,9 +85,10 @@ Noah keeps itself up to date after install.
 ### Bring your own Anthropic key
 
 Open **Settings** and paste an Anthropic key (it starts with `sk-ant-`) — or set
-`ANTHROPIC_API_KEY` before launching. Your key is stored in your system keychain, stays on
-your machine, and is used only for direct calls to Anthropic. Noah for Tinkerers has no
-backend of its own.
+`ANTHROPIC_API_KEY` before launching. Your key is stored locally on your device and used
+only to authenticate your own calls to Anthropic. The app has no accounts and no paywall;
+the only other network calls are an update check and an anonymous, opt-out usage ping
+(toggle it off in Settings).
 
 ## Safety
 
@@ -94,8 +96,8 @@ backend of its own.
 - **Shows you the plan** — you see exactly what Noah will do before it does it
 - **Flags risky actions** — `rm`, `sudo`, disk formatting, and similar commands require explicit approval with a plain-language explanation
 - **Logs everything** — every action is recorded in a session journal you can review
-- **Hard limits** — boot config, firmware, security software, disk partitions, and system integrity protection are permanently off-limits
-- **Credentials stay local** — API keys and secrets stay on your device and are never sent to any server
+- **Hard limits** — the catastrophic operations (wiping your home folder or keychains, erasing a disk) are blocked outright and can't be approved away; everything else risky is gated behind your explicit approval
+- **Your key stays yours** — stored locally and used only to authenticate your own calls to Anthropic; it's never sent to a Noah server
 
 ## Open source & contributing
 
