@@ -78,6 +78,12 @@ fn load_auth(app_dir: &std::path::Path) -> AuthMode {
 pub fn save_api_key(app_dir: &std::path::Path, key: &str) -> Result<(), String> {
     let key_path = app_dir.join("api_key.txt");
     std::fs::write(&key_path, key).map_err(|e| format!("Failed to save API key: {}", e))?;
+    // The key is a secret; restrict the file to the owner (read/write only) on Unix.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600));
+    }
     // Remove any legacy hosted-auth config left over from older builds.
     let _ = std::fs::remove_file(app_dir.join("proxy.json"));
     let _ = std::fs::remove_file(app_dir.join("session.txt"));
