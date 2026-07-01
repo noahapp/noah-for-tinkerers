@@ -19,7 +19,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 const BUCKET = "noah-downloads";
-const REPO = process.env.NOAH_RELEASE_REPO ?? "xuy/noah";
+const REPO = process.env.NOAH_RELEASE_REPO ?? "noahapp/noah-for-tinkerers";
 const CHANNEL = process.env.NOAH_UPDATE_CHANNEL ?? "byok";
 const LATEST_JSON_ASSET = `${CHANNEL}-latest.json`;
 const MIRROR_STABLE_INSTALLERS = process.env.NOAH_MIRROR_STABLE_INSTALLERS === "1";

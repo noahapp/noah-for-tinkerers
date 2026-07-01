@@ -13,7 +13,7 @@ const IS_MAC = process.platform === "darwin";
 const BUNDLE_DIR = IS_MAC
   ? path.join(ROOT, "target", "universal-apple-darwin", "release", "bundle")
   : path.join(ROOT, "target", "release", "bundle");
-const RELEASE_REPO = process.env.NOAH_RELEASE_REPO ?? "xuy/noah";
+const RELEASE_REPO = process.env.NOAH_RELEASE_REPO ?? "noahapp/noah-for-tinkerers";
 const UPDATE_CHANNEL = process.env.NOAH_UPDATE_CHANNEL ?? "byok";
 const UPDATE_BASE_URL =
   process.env.NOAH_UPDATE_BASE_URL ?? `https://onnoah.app/${UPDATE_CHANNEL}/download`;
@@ -438,7 +438,7 @@ async function main() {
       "release", "create", tag, "--repo", RELEASE_REPO,
       "--title", `Noah ${tag}`, "--generate-notes",
     ];
-    // BYOK (any non-"desktop" channel) releases on xuy/noah must NEVER become
+    // BYOK (any non-"desktop" channel) releases on noahapp/noah-for-tinkerers must NEVER become
     // the repo's "Latest" release. Legacy 1.1.0 installs resolve updates via
     //   github.com/xuy/noah/releases/latest/download/latest.json
     // and that pointer must keep resolving to the one-hop migration release

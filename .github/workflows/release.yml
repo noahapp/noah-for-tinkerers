@@ -59,13 +59,13 @@ jobs:
       - name: Build and upload release
         run: node scripts/release.mjs --upload ${{ inputs.tag && format('--tag {0}', inputs.tag) || '' }} --skip-install
         env:
-          # BYOK channel (xuy/noah → onnoah.app/byok). These match release.mjs's
+          # BYOK channel (noahapp/noah-for-tinkerers → onnoah.app/byok). These match release.mjs's
           # defaults; set explicitly so the workflow can never drift onto the
           # paid `desktop` path.
-          NOAH_RELEASE_REPO: xuy/noah
+          NOAH_RELEASE_REPO: noahapp/noah-for-tinkerers
           NOAH_UPDATE_CHANNEL: byok
           # Updater signing — the rotated BYOK-only key (CE75B852), NOT the paid
-          # legacy key. Set as repo secrets on xuy/noah.
+          # legacy key. Set as repo secrets on noahapp/noah-for-tinkerers.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # R2 mirror that feeds onnoah.app/byok/latest.json. Without these the

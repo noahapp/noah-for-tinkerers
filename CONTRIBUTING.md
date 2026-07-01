@@ -8,7 +8,7 @@ Issues, ideas, and PRs are welcome.
 **Prerequisites:** Node.js (v18+), pnpm, Rust ([rustup.rs](https://rustup.rs))
 
 ```bash
-git clone https://github.com/xuy/noah.git
+git clone https://github.com/noahapp/noah-for-tinkerers.git
 cd noah
 pnpm install
 ```

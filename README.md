@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
   <img src="https://img.shields.io/badge/key-bring%20your%20own-5b8def.svg" alt="Bring your own key">
 </p>
 
@@ -72,7 +72,7 @@ Noah isn't just a chatbot — it monitors your machine and can fix problems befo
 
 ### Download
 
-Grab the BYOK build from the [Releases page](https://github.com/xuy/noah/releases):
+Grab the BYOK build from the [Releases page](https://github.com/noahapp/noah-for-tinkerers/releases):
 - **macOS** — `.dmg` (universal, Apple Silicon + Intel)
 - **Windows** — `.msi` / `.exe` (x64)
 - **Linux** — `.AppImage`
@@ -106,7 +106,7 @@ Noah for Tinkerers is built in public. Issues, ideas, and pull requests are welc
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE).
+AGPL-3.0 — see [LICENSE](LICENSE).
 
 ---
 

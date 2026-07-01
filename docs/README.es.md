@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="../LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
 </p>
 
 <p align="center">
@@ -42,7 +42,7 @@ Cada acción queda registrada. Las operaciones peligrosas requieren tu aprobaci�
 
 ### Descargar
 
-Ve a [Releases](https://github.com/xuy/noah/releases) y descarga la última versión:
+Ve a [Releases](https://github.com/noahapp/noah-for-tinkerers/releases) y descarga la última versión:
 - **macOS** — `.dmg` (Apple Silicon)
 - **Windows** — `.msi` o instalador `.exe` (x64)
 
@@ -80,7 +80,7 @@ Tu clave se guarda localmente en tu máquina. Solo se usa para comunicarse direc
 
 ## Licencia
 
-Apache-2.0
+AGPL-3.0
 
 ---
 
