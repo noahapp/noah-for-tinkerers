@@ -16,18 +16,11 @@ computer problems in plain English, with a safety harness around every action.
 You bring an Anthropic API key; Noah talks to Claude directly from your machine. No
 subscription and no account — just the app, your key, and your computer.
 
-> ### 👉 Just want it to work?
-> **[onnoah.app](https://onnoah.app)** is the commercial version — the same app, fully
-> managed. No API key, no setup, nothing to configure: download, describe the problem, done.
-> Free to start. **This repo is the BYOK build** for tinkerers who'd rather bring their own
-> key, read the source, and hack on it.
-
 > **Why not just point Claude or Codex at your machine?** Raw models have no guardrails —
 > they'll happily `rm -rf` the wrong thing — and sandboxed tools can't touch the real system
 > you're trying to fix. Noah is the middle path: a real desktop agent that runs read-only
-> diagnostics first, shows you the plan, gates destructive actions behind explicit approval,
-> and hard-blocks the truly catastrophic ones outright (wiping your home folder or keychains,
-> erasing a disk).
+> diagnostics first, shows you the plan, and gates destructive actions behind explicit
+> approval.
 
 <p align="center">
   <img src="docs/images/noah-hero.png" width="800" alt="Noah diagnosing a slow computer, finding runaway processes, and fixing the issue in one click" />
@@ -37,36 +30,54 @@ subscription and no account — just the app, your key, and your computer.
 ## How it works
 
 1. **Describe the problem** — in your own words, no jargon needed
-2. **Noah investigates** — runs diagnostics silently in the background
+2. **Noah investigates** — runs read-only diagnostics in the background
 3. **Noah shows you the plan** — what it found and what it wants to do
 4. **You approve** — Noah handles the rest and confirms the fix
 
-Every action is logged and reversible. Risky operations require your explicit approval; the truly catastrophic ones — wiping your home folder or keychains, erasing a disk — are blocked outright and can't be approved away.
+A real example, the one in the screenshot above: you say *"my Mac is slow."* Noah checks
+running processes, finds `backupd` pinned near 300% CPU, explains that a stuck backup daemon
+is eating your CPU, and proposes quitting it — one click to approve.
 
-## Beyond chat: Health, Playbooks, Auto-Heal
+Every action is logged in a journal you can review. Risky operations require your explicit
+approval.
 
-Noah isn't just a chatbot — it monitors your machine and can fix problems before you notice them.
+## Beyond chat: Playbooks and local Knowledge
 
-- **Health Scorecards** — background checks across five categories (Security, Updates, Performance, Backups, Network) grade your machine A–F, with one-click fixes for what's failing.
-- **Playbooks** — 25+ built-in Markdown remediation scripts (disk recovery, network diagnostics, printer repair, VPN, backups, browser security, performance forensics, and more). Drop in your own and Noah runs them as guided or automated fixes.
-- **Auto-Heal** — when enabled, Noah triages failing checks, picks the right playbook, runs it, and measures the result in the background. Your machine fixes itself.
+Noah isn't just a chatbot — it carries reusable repair procedures and a memory of your machine.
+
+- **Playbooks** — 26 bundled Markdown remediation procedures (disk recovery, network
+  diagnostics, printer repair, VPN, backups, browser security, performance forensics, and
+  more), plus folder-based playbooks for multi-step setups. Each is a plain `.md` file the
+  model reads and follows as a guided, agent-run fix you approve step by step. Drop your own
+  into the playbooks directory and Noah runs it too — no rebuild, no plugin API.
+- **Knowledge** — a local store where Noah remembers your system, past fixes, and
+  preferences, so it doesn't re-diagnose the same thing twice. It lives on your device, is
+  written as plain files you can read, and is never synced anywhere.
 
 ## What Noah can do
 
-| Category | Mac | Windows |
-|---|---|---|
-| **Network** — DNS, connectivity, flush cache, test hosts | Yes | Yes |
-| **Printers** — queue, cancel jobs, restart print service | Yes | Yes |
-| **Performance** — CPU/memory/disk, stop runaway processes | Yes | Yes |
-| **Apps** — logs, clear caches, troubleshoot crashes | Yes | Yes |
-| **System** — diagnostics, health checks, shell commands | Yes | Yes |
-| **Updates** — detect stale OS, troubleshoot stuck updates | Yes | Yes |
-| **Security** — firewall, encryption, endpoint checks | Yes | Yes |
-| **Backups** — Time Machine status, backup verification | Yes | — |
-| **Knowledge** — remembers your system, past fixes, preferences | Yes | Yes |
-| **Health Scorecards** — continuous monitoring with A-F grades | Yes | Yes |
-| **Playbooks** — guided and automated remediation | Yes | Yes |
-| **Auto-Heal** — background self-repair on failing checks | Yes | Yes |
+Noah's capabilities are grouped by domain. Coverage varies by OS — macOS is the most
+complete, Linux is a deliberately narrower set (see the note under the table).
+
+| Category | macOS | Windows | Linux |
+|---|---|---|---|
+| **Network** — DNS, connectivity, flush cache, reach hosts | Yes | Yes | Yes |
+| **Performance** — CPU/memory/disk, stop runaway processes | Yes | Yes | Yes |
+| **System** — diagnostics, read logs & files, run shell commands | Yes | Yes | Yes |
+| **Apps** — logs, clear caches, troubleshoot crashes | Yes | Yes | — |
+| **Printers** — queue, cancel jobs, restart print service | Yes | Yes | — |
+| **Updates** — detect stale OS, troubleshoot stuck updates | Yes | Yes | partial |
+| **Security** — firewall, encryption, endpoint checks | Yes | Yes | partial |
+| **Backups** — Time Machine status, backup verification | Yes | — | — |
+| **Knowledge** — remembers your system, past fixes, preferences | Yes | Yes | Yes |
+| **Playbooks** — 26 bundled, guided agent-run fixes you approve | Yes | Yes | Yes |
+
+macOS also ships deeper tools — Wi-Fi scanning, a storage/disk-usage audit, and crash-log
+reading; Windows adds service and startup-item management. Linux currently ships the core
+network, performance, and system-diagnostic tools plus `shell_run` — enough to investigate
+and repair, but without the dedicated app, printer, and backup tooling the other platforms
+have. Anything without a dedicated tool is still reachable through `shell_run` and playbooks,
+under the same approval gates.
 
 ## Get started
 
@@ -79,8 +90,8 @@ Grab the BYOK build from the [Releases page](https://github.com/noahapp/noah-for
 
 Noah keeps itself up to date after install.
 
-> Don't want to manage an API key? The managed version at **[onnoah.app](https://onnoah.app)**
-> is the same app with nothing to set up — download and go.
+Don't trust a binary? You don't have to. This is the whole app — read every line, or build
+it yourself in a couple of minutes; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Bring your own Anthropic key
 
@@ -115,6 +126,14 @@ How Noah is built, in depth — engineering design docs, each verified against t
 
 Noah for Tinkerers is built in public. Issues, ideas, and pull requests are welcome — see
 [CONTRIBUTING.md](CONTRIBUTING.md) to get a dev build running in a couple of minutes.
+
+## Get Noah
+
+**[⬇ Download Noah for Tinkerers](https://github.com/noahapp/noah-for-tinkerers/releases)** — the open, bring-your-own-key build. Read the source, hack on it, run it on your own key.
+
+> **Prefer it fully managed?** [onnoah.app](https://onnoah.app) is the same idea with nothing
+> to set up — no API key, no configuration. Two parallel tracks to the same place: pick the
+> one that fits how you like to work.
 
 ## License
 
