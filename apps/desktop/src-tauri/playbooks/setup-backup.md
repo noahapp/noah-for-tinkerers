@@ -45,6 +45,6 @@ Check with `tmutil status` and `tmutil latestbackup`.
 Confirm the first backup has started and show estimated time.
 
 ## Tools referenced
-- `mac_run_command` — tmutil commands
+- `shell_run` — tmutil commands
 - `ui_user_question` — backup destination choice, exclusion paths
 - `ui_spa` with WAIT_FOR_USER — plugging in drives

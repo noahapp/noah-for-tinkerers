@@ -40,7 +40,7 @@ If the connection fails:
 - Captive portal → tell user to open a browser
 
 ## Tools referenced
-- `mac_run_command` / `win_run_command` — network commands
+- `shell_run` — network commands
 - `ui_user_question` with `text_input` — SSID, username
 - `ui_user_question` with `secure_input` — Wi-Fi password
 - `write_secret` — write password to config file if needed

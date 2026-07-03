@@ -102,8 +102,9 @@ set `emoji:`.
 The DSL is deliberately thin. `parse_steps` in `playbooks.rs` scans for level-2
 Markdown headers of the form `## Step N: Label` (also accepting `## N. Label`,
 `## Step N — Label`, etc.). Whether a playbook has such headers is the entire
-distinction between the two shapes — there is no `kind:` field. `is_procedural()`
-is literally "does `parse_steps` return anything."
+distinction between the two shapes — there is no `kind:` field. "Procedural" is
+literally "does `parse_steps` return anything," an invariant the test suite in
+`playbooks.rs` pins for every bundled playbook.
 
 ### Diagnostic (prose sections)
 
@@ -156,7 +157,7 @@ is a checkpoint the orchestrator counts. Real example — `setup-homebrew.md`:
 
 ```markdown
 ## Step 1: Check if Homebrew is already installed
-Run `mac_run_command` with `which brew` or `brew --version` to see if it exists.
+Run `shell_run` with `which brew` or `brew --version` to see if it exists.
 - If Homebrew is already installed, skip to Step 4 (install packages).
 
 ## Step 2: Install Homebrew
@@ -170,7 +171,7 @@ Use WAIT_FOR_USER — the user needs to run this in Terminal themselves ...
 ...
 
 ## Tools referenced
-- `mac_run_command` — run shell commands to check/install
+- `shell_run` — run shell commands to check/install
 - `ui_spa` with WAIT_FOR_USER — for Terminal steps the user must do themselves
 ```
 

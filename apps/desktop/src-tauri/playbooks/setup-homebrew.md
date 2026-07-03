@@ -14,7 +14,7 @@ emoji: 🍺
 User wants to install Homebrew, set up a package manager, or says they need to install software on their Mac and doesn't have Homebrew yet.
 
 ## Step 1: Check if Homebrew is already installed
-Run `mac_run_command` with `which brew` or `brew --version` to see if it exists.
+Run `shell_run` with `which brew` or `brew --version` to see if it exists.
 - If Homebrew is already installed, skip to Step 4 (install packages).
 - If not found, continue with Step 2.
 
@@ -40,7 +40,7 @@ If the user had specific software in mind, help them install it via `brew instal
 Common requests: Chrome (`google-chrome`), VS Code (`visual-studio-code`), Slack (`slack`), Zoom (`zoom`).
 
 ## Tools referenced
-- `mac_run_command` — run shell commands to check/install
+- `shell_run` — run shell commands to check/install
 - `ui_spa` with WAIT_FOR_USER — for Terminal steps the user must do themselves
 - `ui_user_question` — ask what packages they want
 

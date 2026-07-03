@@ -69,7 +69,7 @@ A complete inventory of where data goes.
 |---|---|
 | Anthropic API key | `api_key.txt` in the app data dir (or `ANTHROPIC_API_KEY` env) |
 | Session journal, sessions, change log | local SQLite (`journal.db`, `safety/journal.rs`) |
-| Knowledge / remembered facts | local SQLite (`artifacts.rs`) |
+| Knowledge / remembered facts | plain files in the app's knowledge directory (`knowledge.rs`) |
 | Diagnostic tool output | processed in-process; persisted only to the local journal |
 | Local telemetry events | `telemetry_events` table in local SQLite, gated by `telemetry_consent`; `record_telemetry_event` only does an `INSERT` — it is **not** uploaded anywhere |
 

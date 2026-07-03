@@ -84,7 +84,7 @@ apps/desktop/
   src-tauri/
     src/
       agent/              # Orchestrator, LLM client, tool router, prompts
-      artifacts.rs        # Knowledge persistence (save/query facts across sessions)
+      knowledge.rs        # Knowledge store (plain files: facts, playbooks TOC)
       platform/linux/     # Linux tool implementations
       platform/macos/     # macOS tool implementations
       platform/windows/   # Windows tool implementations

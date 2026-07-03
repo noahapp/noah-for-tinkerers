@@ -283,9 +283,9 @@ cd apps/desktop/src-tauri && cargo test playbooks -- --nocapture
 ```
 
 **Expected:**
-- `test_read_playbook_not_found` passes: activating a nonexistent name returns an error that includes "not found" and lists the available playbook names
+- `test_read_playbook_not_found` passes: activating a nonexistent name returns an error that includes "not found" and points to `list_knowledge` (category `playbooks`) to discover what's available
 
-**Pass criteria:** Graceful error with a helpful available-names list
+**Pass criteria:** Graceful error that tells the model how to recover
 
 ---
 

@@ -207,8 +207,8 @@ HashSet<path>>>>` on the orchestrator; cleared on session end). It mirrors
 Claude Code's read-set.
 
 - A **read-class** observation records the paths it covers as inspected:
-  `shell_run` running `ls`/`du`/`find`/`stat`/`cat`/`file` against a path, and
-  the structured read tools (`disk_audit`, `mac_disk_usage`).
+  `shell_run` running `ls`/`du`/`find`/`stat`/`cat`/`file` (and similar
+  read-only commands) against a path, on successful exit.
 - A **delete** targeting a protected tree consults the set:
   - wildcard sweep → reject (never cleared), tip: enumerate + inspect specifics.
   - concrete path inspected (path `T` where some inspected `I` is within the
@@ -223,7 +223,7 @@ The tip is what makes it a harness, not a wall: it instructs the remedy.
 
 ## The action-event record ("did we actually approve it")
 
-Emitted from the execution layer for every consequential action:
+The record the execution layer should produce for every consequential action:
 
 ```
 action_event {
@@ -235,10 +235,12 @@ action_event {
 }
 ```
 
-The current implementation emits this locally (frontend debug channel + stderr)
-and records the approval/denial decision — closing the "we only saw the proposed
-command" blindness. Binding `paths_touched` into the undo journal is the natural
-next step; it reuses `safety::journal`.
+This is the target shape. Today the execution layer emits its substance as local
+debug events — `safety_gate` (the gate verdict for the exact command), plus
+`tool_approved` / `tool_denied` (the human decision) — closing the "we only saw
+the proposed command" blindness. `bytes_freed` and `paths_touched` are not yet
+recorded; binding them into the undo journal is the natural next step, reusing
+`safety::journal`.
 
 ## Honoring intent (playbook layer)
 
@@ -269,6 +271,6 @@ edges of is more trustworthy than one that pretends to be total.
 
 ## What this deliberately does NOT do
 
-- It does not block the moat: a careful, looked-at deletion still proceeds.
+- It does not block the core capability: a careful, looked-at deletion still proceeds.
 - It does not rely on the model's self-reported `reason` for anything load-bearing.
 - It does not try to compute "irreplaceable"; it approximates and says so.

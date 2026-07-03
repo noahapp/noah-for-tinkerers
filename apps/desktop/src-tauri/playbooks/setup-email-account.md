@@ -60,4 +60,4 @@ If issues: check server settings, ports (993 for IMAP SSL, 587 for SMTP TLS).
 - `ui_user_question` with `text_input` — email address, server details
 - `ui_user_question` with `secure_input` — email password
 - `ui_spa` with WAIT_FOR_USER — browser sign-in, app wizard steps
-- `mac_run_command` — open apps, check settings
+- `shell_run` — open apps, check settings

@@ -42,6 +42,6 @@ Host github.com
 ```
 
 ## Tools referenced
-- `mac_run_command` / `win_run_command` — run ssh-keygen and test commands
+- `shell_run` — run ssh-keygen and test commands
 - `ui_user_question` with `text_input` — collect email
 - `ui_spa` with WAIT_FOR_USER — GitHub key paste step

@@ -60,7 +60,15 @@ def iter_fenced_blocks(lines):
         fence, lang = m.group(1), m.group(2).lower()
         start = i + 1
         j = start
-        while j < len(lines) and not lines[j].startswith(fence[:3]):
+        # A closing fence uses the same marker character, is at least as long
+        # as the opener, and carries nothing else on the line.
+        def closes(line):
+            stripped = line.strip()
+            return (
+                stripped.startswith(fence[0] * len(fence))
+                and set(stripped) == {fence[0]}
+            )
+        while j < len(lines) and not closes(lines[j]):
             j += 1
         yield start, lang, lines[start:j]
         i = j + 1
