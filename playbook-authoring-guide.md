@@ -47,7 +47,7 @@ description: One-line summary of what this playbook does
 platform: all
 last_reviewed: 2026-03-09
 author: your-name
-type: user
+source: local
 ---
 ```
 
@@ -58,7 +58,8 @@ type: user
 | `platform` | `all`, `macos`, `windows`, `linux` | Noah only loads playbooks matching the user's OS |
 | `last_reviewed` | `YYYY-MM-DD` | When the playbook was last verified accurate |
 | `author` | string | Credit |
-| `type` | `system` or `user` | `system` = bundled with Noah (auto-updated). `user` = custom (preserved across updates) |
+| `source` | `bundled`, `local`, or `fleet` | `bundled` = ships with Noah (auto-updated). `local` = your own file (preserved across updates). `fleet` = pushed by an administrator. Use `local` for playbooks you write. The legacy `type:` field (`system`/`user`) is still accepted. |
+| `emoji` | optional, a single emoji | Icon shown on the progress card |
 
 ### Body Structure
 
@@ -439,7 +440,7 @@ Playbooks are instructions for an AI agent, not documentation for humans.
 
 Before submitting a playbook:
 
-- [ ] Frontmatter has all required fields (`name`, `description`, `platform`, `type`)
+- [ ] Frontmatter has all required fields (`name`, `description`, `platform`, `source`)
 - [ ] Every step has a `## Step N: Label` header
 - [ ] Steps are in executable order (no forward dependencies)
 - [ ] Every WAIT_FOR_USER step has concrete instructions (not "I'll guide you")
@@ -510,7 +511,7 @@ description: Install and configure Example App with API access
 platform: all
 last_reviewed: 2026-03-09
 author: your-name
-type: user
+source: local
 ---
 
 # Set Up Example App

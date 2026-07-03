@@ -1,8 +1,8 @@
 # Noah Design Principles
 
-These are the rules we apply to every visual decision in the desktop app. Specific color values, font sizes, and spacing units live in `index.css`. This document is about the **why**, so future contributors (and a future designer) can extend the system without breaking it.
+These are the rules we apply to every visual decision in the desktop app. Specific color values, font sizes, and spacing units live in `index.css`. This document is about the **why**, so contributors can extend the system without breaking it.
 
-> **Status:** Monochrome (grayscale) identity shipped for the open-source "Noah for Tinkerers" build — the app is now strictly black-and-white with a wrench mark, and **red + amber are the only colors** (danger + warning). This replaced the earlier "Aurora" indigo/teal system: every `--aurora*` / `--color-accent-*` token still exists (backward compat) but now resolves to a neutral gray, so the utility-class names below are unchanged even though the palette is not. `BRAND_GUIDE.md` predates this and is queued for a separate rewrite — defer to this file when they disagree.
+The identity is monochrome: the app is strictly black-and-white with a wrench mark, and red + amber are the only colors (danger + warning). One naming note before the principles: the `--aurora*` / `--color-accent-*` tokens and the utility classes built on them predate the monochrome identity. The names are kept for compatibility, but every one of them now resolves to a neutral gray — read "aurora" as "the high-contrast identity treatment," not a color.
 
 ---
 
@@ -40,7 +40,7 @@ The system must:
 - Reserve the two real colors (red, amber — see Principle 8) for danger and warning only.
 
 What this rules out:
-- Any brand color at all — indigo, teal, blue, violet. The legacy Aurora indigo/teal palette and the older greens (`#34c759` / `#34d399`) are gone; anywhere a saturated brand hue still appears is unfinished migration.
+- Any brand color at all — indigo, teal, blue, violet, green. Anywhere a saturated hue other than red or amber appears is a bug, not a choice.
 - Bootstrap-y "primary blue, success green" accents.
 - Signalling importance with color instead of contrast/weight.
 
@@ -52,7 +52,7 @@ The highest-contrast moment in the UI — the near-white (dark theme) or near-bl
 
 Practical rules:
 - Body text uses neutral text colors. Never a saturated accent (there aren't any).
-- Section labels are **eyebrows** — small uppercase, the `.eyebrow` class, a muted neutral leading bar. `.eyebrow.commit` is now identical to `.eyebrow` (no color differentiation). The previous rule that "Situation"/"Plan"/"Result" got their own accent color (blue/purple/green) is long retired; the structured payload (`findings`, `steps`) carries the section semantics now.
+- Section labels are **eyebrows** — small uppercase, the `.eyebrow` class, a muted neutral leading bar. `.eyebrow.commit` is identical to `.eyebrow` (no color differentiation); the structured payload (`findings`, `steps`) carries the section semantics.
 - Card backgrounds are neutral elevation tones, never tinted (except a brief neutral wash on hover).
 - The high-contrast fill is reserved for **primary** moments. Everyday actions use a mid-gray surface and pick up a slightly stronger contrast on hover only.
 - Disabled states are gray. Because everything is gray, disabled is signalled by *low contrast* (muted text on a recessed surface), not by desaturating a hue.
@@ -148,7 +148,7 @@ Practical rules:
 - Light mode shadows are tighter and shorter (long shadows look fake in light mode).
 - Test every screen in both modes before shipping.
 
-This is not a finished system. Light mode today is dark-mode tokens with light-mode values swapped in. A real designer pass — own elevation logic, own accent rhythm, own card density — is queued.
+This is not a finished system. Light mode today is dark-mode tokens with light-mode values swapped in; a dedicated design pass — its own elevation logic, accent rhythm, and card density — is still needed.
 
 ---
 
@@ -195,12 +195,12 @@ These are the reusable primitives shipped in `index.css`. New surfaces should co
 
 ---
 
-## What this document does NOT yet specify
+## What this document does not yet specify
 
-Honest list of surfaces where the system has gaps. Solving these needs designer time, not just engineer time.
+Surfaces where the system still has gaps. Contributions here are welcome, but they need design thinking, not just code:
 
-- **Mid-conversation chat surfaces.** The handoff covered onboarding → first fix. It did not cover what a 5-minute-deep conversation looks like. Tool-call cards, ambient activity log, and the assistant-bubble identity are all under-specified.
-- **Chat-bubble polarity.** User vs. assistant bubbles are currently differentiated only by background. The Brand Guide's two-loops metaphor (warm = user, cool = Noah) suggests a richer treatment that isn't built.
-- **Sidebar density and identity.** Active session row, hover, drag, drop — none have an aurora response. Today the sidebar is a list of files with one aurora button at the top.
+- **Mid-conversation chat surfaces.** The system is strongest from onboarding through the first fix. What a 5-minute-deep conversation looks like — tool-call cards, the ambient activity log, the assistant-bubble identity — is under-specified.
+- **Chat-bubble polarity.** User vs. assistant bubbles are currently differentiated only by background; a richer treatment isn't designed yet.
+- **Sidebar density and identity.** Active session row, hover, drag, drop — none have a designed identity response. Today the sidebar is a list of files with one high-contrast button at the top.
 - **Light mode as its own system.** See Principle 9. Today it's dark-mode-with-tokens-flipped, not a designed light experience.
-- **Diagnostic / Result cards.** The handoff specced both (`Diagnose-A`, `Fixed-A`); we deferred them because backing data (per-step tool status, before/after metrics) isn't reliably emitted yet. Build the data first, then the surfaces.
+- **Diagnostic / Result cards.** Deferred because the backing data (per-step tool status, before/after metrics) isn't reliably emitted yet. Build the data first, then the surfaces.

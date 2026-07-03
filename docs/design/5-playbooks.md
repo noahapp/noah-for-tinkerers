@@ -1,10 +1,5 @@
 # Playbooks — Markdown as Remediation Programs
 
-> **Status/scope:** Doc 5 of 7 — as-shipped, verified against `apps/desktop/src-tauri/` on the
-> current tree. Cross-references doc 1 (the SPA card contract) for the
-> progress stepper. Covers how remediation knowledge is authored, parsed, followed,
-> and contributed. Does not cover the orchestrator turn loop in depth (doc 2).
-
 Noah's remediation knowledge is not compiled into the binary as Rust. It is authored
 as plain Markdown files — "playbooks" — each with a YAML frontmatter header and a
 lightweight step DSL expressed entirely in Markdown headers. A playbook is a protocol
@@ -25,10 +20,9 @@ mode, the same agent that *follows* playbooks can *write* them.
 ## What a playbook is
 
 A playbook is a single `.md` file (or a folder of them). The bundled set lives at
-`apps/desktop/src-tauri/playbooks/`. As of this writing that directory holds **26
-flat bundled playbooks** plus one folder-based playbook (`setup-openclaw/`, with a
-`playbook.md` entry point and 10 sub-modules) — **38 `.md` files total**, including a
-`TEMPLATE.md` stub that the scanner deliberately skips.
+`apps/desktop/src-tauri/playbooks/`: **26 flat bundled playbooks** plus one
+folder-based playbook (`setup-openclaw/`, with a `playbook.md` entry point and 10
+sub-modules), alongside a `TEMPLATE.md` stub that the scanner deliberately skips.
 
 A representative sample of the flat set:
 
@@ -96,10 +90,10 @@ it re-bootstraps the bundled set, so user edits and admin pushes survive app
 updates. `content_hash` (12 hex chars of SHA-256) versions each file for fleet
 run-reporting.
 
-> **Doc note.** The shipped parser accepts both the legacy `type:` field and `source:`,
-> with `source:` taking precedence when both are present (`type: system` → Bundled,
-> `type: user` → Local), so legacy playbooks keep working; new playbooks should use
-> `source:` and may set `emoji:`.
+The parser accepts both the legacy `type:` field and `source:`, with `source:`
+taking precedence when both are present (`type: system` → Bundled, `type: user` →
+Local), so older playbooks keep working. New playbooks should use `source:` and may
+set `emoji:`.
 
 ---
 
@@ -187,8 +181,7 @@ calls `advance()` and injects the current position into the outgoing card.
 ### The progress stepper
 
 For a procedural playbook, `PlaybookState::progress_json()` produces a payload the
-orchestrator (`orchestrator.rs`, ~line 568) splices into every `ui_*` card under a
-`progress` key:
+orchestrator splices into every `ui_*` card under a `progress` key:
 
 ```json
 { "step": 2, "total": 4, "label": "Install Homebrew",
@@ -198,7 +191,7 @@ orchestrator (`orchestrator.rs`, ~line 568) splices into every `ui_*` card under
 
 The desktop side consumes this as `PlaybookProgress` (`lib/tauri-commands.ts`),
 whose `all_steps[]` drives the visual wizard — the numbered stepper rendered in the
-SPA card (see doc 1 for the card contract). Diagnostic playbooks return `None` from
+SPA card (see [Generative UI](./1-generative-ui.md) for the card contract). Diagnostic playbooks return `None` from
 `progress_json()`, so they show no stepper — correct, because they have no linear
 step sequence to visualize. Progress is tracked deterministically by the
 orchestrator, **not** by the model asserting "I'm on step 3."
@@ -287,10 +280,6 @@ can write a playbook the model will follow precisely.
 - **The frontmatter parser is line-based, not a real YAML engine.** Multi-line
   values, nested keys, and quoting nuances aren't supported; keep every field on
   one line.
-- **The authoring guide is out of sync with the frontmatter it documents.** It
-  shows the legacy `type:` field and omits `source:`/`emoji:`. Both work (the
-  parser is backward-compatible), but the guide should be reconciled to the
-  `source:` taxonomy.
 - **Progress is turns-based, not tool-based.** `advance()` fires per interactive
   turn, so a step that takes several model turns can lag the visual stepper, and a
   step the model collapses can jump it. It is a fidelity aid, not a guarantee.

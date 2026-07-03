@@ -35,32 +35,39 @@ This produces platform installers (`.dmg` on macOS, `.msi`/`.exe` on Windows, Li
 cargo test --workspace          # Rust tests
 pnpm --filter @noah/desktop test   # Frontend tests
 npx tsc --noEmit                # TypeScript type check
+python3 scripts/lint_diagrams.py   # Docs: diagram alignment + mermaid checks
 ```
+
+If you touch a diagram in any `.md` file, run the diagram linter before committing. It
+verifies that box diagrams use only width-safe characters (ASCII + box-drawing, so
+columns align in every renderer) and that vertical borders are structurally continuous.
+Add `--mermaid` to also render mermaid blocks with mermaid-cli.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────┐
-│         React + TypeScript UI       │
-│  (Chat, ActionCards, SessionHistory)│
-├─────────────────────────────────────┤
-│              Tauri 2                │
-├─────────────────────────────────────┤
-│          Rust Backend               │
-│  ┌─────────────┐  ┌──────────────┐ │
-│  │ Orchestrator │  │ Tool Router  │ │
-│  │ (agentic     │  │ (40+ tools,  │ │
-│  │  loop)       │  │  Mac + Win)  │ │
-│  └──────┬───────┘  └──────┬──────┘ │
-│         │                 │        │
-│  ┌──────▼───────┐  ┌──────▼──────┐ │
-│  │  Claude API  │  │ Local System│ │
-│  │  (thinking)  │  │ (executing) │ │
-│  └──────────────┘  └─────────────┘ │
-├─────────────────────────────────────┤
-│   SQLite (journal, sessions,       │
-│           artifacts/knowledge)     │
-└─────────────────────────────────────┘
+┌───────────────────────────────────────┐
+│         React + TypeScript UI         │
+│  (Chat, ActionCards, SessionHistory)  │
+├───────────────────────────────────────┤
+│                Tauri 2                │
+├───────────────────────────────────────┤
+│             Rust backend              │
+│  ┌──────────────┐   ┌──────────────┐  │
+│  │ Orchestrator │──>│ Tool Router  │  │
+│  │ (agentic     │   │ (~40 tools,  │  │
+│  │  loop)       │   │  by OS)      │  │
+│  └──────┬───────┘   └──────┬───────┘  │
+│         │                  │          │
+│         v                  v          │
+│  ┌──────────────┐   ┌──────────────┐  │
+│  │  Claude API  │   │ Local system │  │
+│  │  (thinking)  │   │ (executing)  │  │
+│  └──────────────┘   └──────────────┘  │
+├───────────────────────────────────────┤
+│  SQLite (journal, sessions,           │
+│          artifacts/knowledge)         │
+└───────────────────────────────────────┘
 ```
 
 **Key design decision:** The LLM thinks, the local machine acts. Claude decides what tools to call, but all execution happens locally via Rust. Your data never leaves your machine (except the conversation with Claude).

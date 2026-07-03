@@ -1,110 +1,109 @@
-# Playbooks Feature — Manual Testing Guide
+# Playbooks — Manual Testing Guide
+
+Automated coverage for the playbook system lives in `apps/desktop/src-tauri/src/playbooks.rs` (`cargo test playbooks`). This guide covers the end-to-end behaviors that need a running app and a live model: activation, protocol-following, and the bootstrap rules.
 
 ## Prerequisites
 
-1. You're on the `feature/playbooks` branch
-2. Dev app builds and runs: `cd apps/desktop && npm run tauri dev`
-3. API key or proxy is configured (Noah can call Claude)
+1. Dev app builds and runs: `pnpm --filter @noah/desktop tauri dev`
+2. An Anthropic API key is configured (Settings, or `ANTHROPIC_API_KEY` in the environment)
+
+Playbooks are bootstrapped to the app's knowledge directory. On macOS:
+
+```
+~/Library/Application Support/app.onnoah.tinkerers/knowledge/playbooks/
+```
+
+The debug panel (Cmd+D / Ctrl+D) shows tool calls as they happen — most tests below watch it.
 
 ---
 
-## Test 1: Bootstrap — Playbooks directory created on first run
+## Test 1: Bootstrap — playbooks directory created on first run
 
 **Steps:**
 1. Delete the playbooks directory if it exists:
    ```bash
-   rm -rf ~/Library/Application\ Support/app.onnoah.desktop/playbooks/
+   rm -rf ~/Library/Application\ Support/app.onnoah.tinkerers/knowledge/playbooks/
    ```
-2. Launch the dev app: `cd apps/desktop && npm run tauri dev`
-3. Check the directory was created:
+2. Launch the dev app
+3. Check the directory:
    ```bash
-   ls -la ~/Library/Application\ Support/app.onnoah.desktop/playbooks/
+   ls ~/Library/Application\ Support/app.onnoah.tinkerers/knowledge/playbooks/
    ```
 
 **Expected:**
-- Directory exists with 5 `.md` files:
-  - `app-doctor.md`
-  - `disk-space-recovery.md`
-  - `network-diagnostics.md`
-  - `performance-forensics.md`
-  - `printer-repair.md`
-- Each file has YAML frontmatter with `name:` and `description:` fields
+- The directory exists and contains the bundled playbooks whose `platform:` matches your OS (or `all`) — on macOS that includes `network-diagnostics.md`, `disk-space-recovery.md`, `performance-forensics.md`, `printer-repair.md`, `app-doctor.md`, and the `setup-openclaw/` folder, among others
+- No wrong-platform playbooks (e.g. no `windows-printer-repair.md` on a Mac)
+- Each file starts with YAML frontmatter containing `name:` and `description:`
 
-**Pass criteria:** All 5 files present, each starts with `---\nname: ...\ndescription: ...\n---`
+**Pass criteria:** Platform-appropriate bundled set present, each file has valid frontmatter
 
 ---
 
-## Test 2: Playbook activation — Network diagnostics
+## Test 2: Playbook activation — network diagnostics
 
 **Steps:**
-1. Open the app
-2. Open the Debug Panel (Cmd+D)
-3. Type: **"my Wi-Fi keeps dropping every few minutes"**
-4. Watch the debug panel for tool calls
+1. Open the app and the debug panel (Cmd+D)
+2. Type: **"my Wi-Fi keeps dropping every few minutes"**
+3. Watch the debug panel for tool calls
 
 **Expected:**
-- In the debug panel, you should see an `activate_playbook` tool call with input `{"name": "network-diagnostics"}`
-- The tool result should contain the full network diagnostics protocol (mentions "Step 1: Quick connectivity check", etc.)
-- Noah should then follow the protocol, starting with `mac_ping` to `8.8.8.8`
-- Subsequent tool calls should follow the playbook's step-by-step order
+- An `activate_playbook` tool call with input `{"name": "network-diagnostics"}`
+- The tool result contains the full playbook protocol
+- Noah follows it, starting with `mac_ping` to `8.8.8.8`, and subsequent tool calls follow the playbook's order
 
 **Pass criteria:** `activate_playbook` called, full protocol returned, Noah follows it systematically
 
 ---
 
-## Test 3: Playbook activation — Performance
+## Test 3: Playbook activation — performance
 
 **Steps:**
 1. Start a new session
 2. Type: **"my Mac is really slow and the fans are going crazy"**
-3. Watch the debug panel
 
 **Expected:**
 - `activate_playbook` called with `{"name": "performance-forensics"}`
-- Noah runs `mac_system_info` and `mac_process_list` as the protocol's Step 1 dictates
+- Noah runs `mac_system_info` and `mac_process_list` as the protocol's first step dictates
 - Noah classifies the situation (CPU-bound, memory pressure, etc.) based on results
 
 **Pass criteria:** Correct playbook activated, diagnostic tools called in protocol order
 
 ---
 
-## Test 4: Playbook activation — Disk space
+## Test 4: Playbook activation — disk space
 
 **Steps:**
 1. Start a new session
 2. Type: **"I keep getting 'disk full' warnings, I can't even install updates"**
-3. Watch the debug panel
 
 **Expected:**
 - `activate_playbook` called with `{"name": "disk-space-recovery"}`
-- Noah runs `mac_disk_usage` and `disk_audit` (new compound tool)
-- Results show categorized breakdown of space usage
+- Noah runs `mac_disk_usage` and `disk_audit`
+- Results show a categorized breakdown of space usage
 
-**Pass criteria:** Correct playbook activated, `disk_audit` tool produces categorized output
+**Pass criteria:** Correct playbook activated, `disk_audit` produces categorized output
 
 ---
 
-## Test 5: Playbook activation — Printer
+## Test 5: Playbook activation — printer
 
 **Steps:**
 1. Start a new session
 2. Type: **"my printer isn't working, print jobs are stuck"**
-3. Watch the debug panel
 
 **Expected:**
 - `activate_playbook` called with `{"name": "printer-repair"}`
-- Noah runs `mac_print_queue` first (Step 1 of protocol)
+- Noah runs `mac_print_queue` first
 
 **Pass criteria:** Correct playbook activated, follows printer protocol
 
 ---
 
-## Test 6: Playbook activation — App crashes
+## Test 6: Playbook activation — app crashes
 
 **Steps:**
 1. Start a new session
 2. Type: **"Safari keeps crashing every time I open it"**
-3. Watch the debug panel
 
 **Expected:**
 - `activate_playbook` called with `{"name": "app-doctor"}`
@@ -119,11 +118,10 @@
 **Steps:**
 1. Start a new session
 2. Type: **"what's my IP address?"**
-3. Watch the debug panel
 
 **Expected:**
-- Noah should call `mac_network_info` directly — **no** `activate_playbook` call
-- Simple question gets a direct answer
+- Noah calls `mac_network_info` directly — **no** `activate_playbook` call
+- A simple question gets a direct answer
 
 **Pass criteria:** No `activate_playbook` in the debug log
 
@@ -134,11 +132,9 @@
 **Steps:**
 1. Start a new session
 2. Type: **"hi there!"**
-3. Watch the debug panel
 
 **Expected:**
-- Noah responds with a greeting — no tool calls at all
-- No `activate_playbook`
+- Noah responds conversationally — no tool calls at all
 
 **Pass criteria:** No playbook activation for casual conversation
 
@@ -149,11 +145,10 @@
 **Steps:**
 1. Start a new session
 2. Type: **"scan my Wi-Fi environment and check for interference"**
-3. Watch the debug panel
 
 **Expected:**
-- `wifi_scan` tool called (may be directly or via a playbook)
-- Output includes: SSID, signal (RSSI) in dBm, noise, channel, signal quality assessment, nearby networks list
+- `wifi_scan` called (directly or via a playbook)
+- Output includes: SSID, signal (RSSI) in dBm, noise, channel, signal quality assessment, nearby networks
 
 **Pass criteria:** `wifi_scan` returns structured Wi-Fi data
 
@@ -164,11 +159,10 @@
 **Steps:**
 1. Start a new session
 2. Type: **"what's eating up my disk space?"**
-3. Watch the debug panel
 
 **Expected:**
-- `disk_audit` called (likely via disk-space-recovery playbook)
-- Output lists directories sorted by size with human-readable sizes (e.g., "15.2 GB  Xcode DerivedData")
+- `disk_audit` called (likely via the disk-space-recovery playbook)
+- Output lists directories sorted by size with human-readable sizes
 - Time Machine snapshot count shown if any exist
 
 **Pass criteria:** Categorized space breakdown returned
@@ -180,14 +174,13 @@
 **Steps:**
 1. Start a new session
 2. Type: **"check if there are any crash reports for Safari"**
-3. Watch the debug panel
 
 **Expected:**
 - `crash_log_reader` called with `{"app_name": "Safari"}`
-- If crash reports exist: summary with exception type, crashed thread, top stack frames
-- If no crash reports: message saying "No crash reports found for 'safari'"
+- If crash reports exist: a summary with exception type, crashed thread, top stack frames
+- If none: a clear "no crash reports found" message
 
-**Pass criteria:** Tool runs without error, returns appropriate result
+**Pass criteria:** Tool runs without error, returns an appropriate result
 
 ---
 
@@ -196,11 +189,10 @@
 **Steps:**
 1. Start a new session
 2. Type: **"show me the recent CUPS error log"**
-3. Watch the debug panel
 
 **Expected:**
 - `crash_log_reader` called with `{"log_path": "/var/log/cups/error_log"}`
-- Returns the last 100 lines of the CUPS log (or an error if the file doesn't exist/is empty)
+- Returns the tail of the CUPS log (or a clean error if the file doesn't exist)
 
 **Pass criteria:** Tool reads the specified log file
 
@@ -209,12 +201,14 @@
 ## Test 13: Custom playbook — pluggability
 
 **Steps:**
-1. Create a custom playbook:
+1. Create a custom playbook (note `source: local` — it marks the file as yours, so app updates never overwrite it):
    ```bash
-   cat > ~/Library/Application\ Support/app.onnoah.desktop/playbooks/test-playbook.md << 'PLAYBOOK'
+   cat > ~/Library/Application\ Support/app.onnoah.tinkerers/knowledge/playbooks/test-custom.md << 'PLAYBOOK'
    ---
    name: test-custom
    description: A test playbook to verify custom playbook loading
+   platform: all
+   source: local
    ---
 
    # Test Custom Playbook
@@ -231,14 +225,12 @@
    Run `mac_system_info` to get basic system details.
    PLAYBOOK
    ```
-2. **Restart the app** (quit and relaunch — playbooks scan on startup)
+2. **Restart the app** (playbooks are scanned on startup)
 3. Type: **"run the test playbook"**
-4. Watch the debug panel
 
 **Expected:**
 - `activate_playbook` called with `{"name": "test-custom"}`
-- Full custom playbook content returned
-- Noah follows the custom protocol
+- Full custom playbook content returned, and Noah follows it
 
 **Pass criteria:** Custom playbook detected, activatable, and followed
 
@@ -247,70 +239,66 @@
 ## Test 14: Custom playbook appears in context
 
 **Steps:**
-1. With the custom playbook from Test 13 still in place, restart the app
-2. In the debug panel, look at the system prompt (first `llm_request` event detail)
-3. Or type: **"what playbooks do you have available?"**
+1. With the custom playbook from Test 13 in place, restart the app
+2. In the debug panel, inspect the system prompt (first `llm_request` event), or type: **"what playbooks do you have available?"**
 
 **Expected:**
-- The system prompt should contain a "Playbooks" section listing 6 playbooks (5 built-in + 1 custom)
-- `test-custom` should appear in the list with its description
+- The system prompt's playbooks section lists the bundled set **plus** `test-custom` with its description
 
-**Pass criteria:** Custom playbook visible in the available playbooks list
+**Pass criteria:** Custom playbook visible in the available-playbooks list
 
 ---
 
-## Test 15: Built-in playbooks not overwritten on restart
+## Test 15: Ownership rules on restart
+
+Bundled playbooks are refreshed on every launch; files marked `source: local` (or `source: fleet`) are never overwritten.
 
 **Steps:**
-1. Edit a built-in playbook:
+1. Edit a **bundled** playbook:
    ```bash
-   echo "CUSTOM EDIT" >> ~/Library/Application\ Support/app.onnoah.desktop/playbooks/network-diagnostics.md
+   echo "CUSTOM EDIT" >> ~/Library/Application\ Support/app.onnoah.tinkerers/knowledge/playbooks/network-diagnostics.md
    ```
-2. Restart the app
-3. Check the file:
+2. Restart the app and check the file:
    ```bash
-   tail -1 ~/Library/Application\ Support/app.onnoah.desktop/playbooks/network-diagnostics.md
+   tail -1 ~/Library/Application\ Support/app.onnoah.tinkerers/knowledge/playbooks/network-diagnostics.md
+   ```
+3. Confirm the custom playbook from Test 13 is untouched:
+   ```bash
+   head -6 ~/Library/Application\ Support/app.onnoah.tinkerers/knowledge/playbooks/test-custom.md
    ```
 
 **Expected:**
-- The last line should still be "CUSTOM EDIT" — the bootstrap did NOT overwrite the existing file
+- The bundled file is restored to its shipped content (the "CUSTOM EDIT" line is gone) — bundled files are not the place for local changes
+- The `source: local` file survives exactly as written
 
-**Pass criteria:** User edits preserved across restarts
+**Pass criteria:** Bundled refreshed, local preserved. To customize a bundled playbook, copy it to a new name with `source: local`.
 
 ---
 
 ## Test 16: activate_playbook error handling
 
-**Steps:**
-1. Start a new session
-2. In a scenario where Noah might try a wrong name, or directly test:
-   - If you can craft a message that makes Noah call `activate_playbook` with a nonexistent name
-
-**Alternative — unit test verification:**
+**Unit test:**
 ```bash
 cd apps/desktop/src-tauri && cargo test playbooks -- --nocapture
 ```
 
 **Expected:**
-- The `test_read_playbook_not_found` test passes
-- Error message includes "not found" and lists available playbook names
+- `test_read_playbook_not_found` passes: activating a nonexistent name returns an error that includes "not found" and lists the available playbook names
 
-**Pass criteria:** Graceful error with helpful available-names list
+**Pass criteria:** Graceful error with a helpful available-names list
 
 ---
 
 ## Cleanup
 
-After testing, remove the custom test playbook:
 ```bash
-rm ~/Library/Application\ Support/app.onnoah.desktop/playbooks/test-playbook.md
+rm ~/Library/Application\ Support/app.onnoah.tinkerers/knowledge/playbooks/test-custom.md
 ```
 
 ---
 
-## Quick Smoke Test (if short on time)
+## Quick smoke test (if short on time)
 
-Run these 3 tests for minimum coverage:
-1. **Test 1** (bootstrap) — verifies infrastructure works
-2. **Test 2** (network diagnostics) — verifies end-to-end playbook activation
-3. **Test 7** (simple question) — verifies no regression for non-playbook queries
+1. **Test 1** (bootstrap) — infrastructure works
+2. **Test 2** (network diagnostics) — end-to-end playbook activation
+3. **Test 7** (simple question) — no regression for non-playbook queries

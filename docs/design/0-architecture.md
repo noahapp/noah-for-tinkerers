@@ -1,57 +1,60 @@
-# Architecture Index
-
-> **Status/scope:** Doc 0 of 7 — index. Stable overview of the shipping open build; the whole system, one page. Deep dives live in the six companion docs linked under [Read next](#read-next). Where this document and older doc-strings disagree, this document and the code win.
+# Architecture
 
 Noah is an agent that fixes computers. The organizing principle is a split of responsibility: **the LLM thinks, the local machine acts.** Claude decides *what* to do — which diagnostic to run, which fix to apply, what to ask the user — but it never touches the machine. Every action is a named tool call that Claude emits and the Rust backend executes locally. The only thing that ever leaves the device is the conversation with Claude: the message history, the tool definitions, and the tool results. There is no Noah server in the loop. The user brings their own Anthropic API key, and the app talks to the Anthropic API directly.
 
 This split is what makes the safety model tractable. Because thinking and acting are physically separate — one in the model, one in a Rust process the user controls — the acting side can enforce its own rules regardless of what the model asks for. The model proposes; the harness disposes. Everything below is a consequence of that one decision.
+
+This page is the overview; each layer is covered in depth by the companion docs linked under [Read next](#read-next).
 
 ## Layers
 
 The app is four layers deep. Reading top to bottom is reading a single user request as it travels from a keystroke to a system change and back:
 
 ```
-┌───────────────────────────────────────────────────────────────┐
-│  React + TypeScript UI            apps/desktop/src/            │
-│  Composer · chat cards · action-approval · session sidebar     │
-│  Renders generative-UI payloads (ui_spa / question / info)     │
-└───────────────────────────────┬───────────────────────────────┘
-                                │  Tauri commands  ▲  events
-                                ▼  (invoke)        │  (emit)
-┌───────────────────────────────────────────────────────────────┐
-│  Tauri 2 bridge         apps/desktop/src-tauri/src/commands/   │
-│  Typed command handlers ⇄ Rust · approval + debug event stream │
-└───────────────────────────────┬───────────────────────────────┘
-                                ▼
-┌───────────────────────────────────────────────────────────────┐
-│  Rust backend           apps/desktop/src-tauri/src/agent/      │
-│                                                                │
-│   ┌─────────────────────────┐      ┌────────────────────────┐  │
-│   │  Orchestrator           │      │  Tool Router           │  │
-│   │  agentic loop           │─────▶│  name → &dyn Tool      │  │
-│   │  send_message()         │      │  tool_definitions()    │  │
-│   │  approval + safety gate │◀─────│  (~40 tools, by OS)    │  │
-│   └───────────┬─────────────┘      └───────────┬────────────┘  │
-│               │                                │               │
-│      ─────────┼──────────  THINK / ACT  ───────┼─────────      │
-│               │                                │               │
-│               ▼                                ▼               │
-│   ┌─────────────────────────┐      ┌────────────────────────┐  │
-│   │  Claude API   (THINK)   │      │  Local system  (ACT)   │  │
-│   │  decides tool calls     │      │  shell, network, disk, │  │
-│   │  BYOK, leaves device    │      │  apps, printers, files │  │
-│   └─────────────────────────┘      └────────────────────────┘  │
-│                                                │               │
-└────────────────────────────────────────────────┼──────────────┘
-                                                 ▼
-┌───────────────────────────────────────────────────────────────┐
-│  SQLite            apps/desktop/src-tauri/src/safety/journal    │
-│  sessions · messages · journal (changes + undo) · llm_traces   │
-│  Local file. Never synced.                                     │
-└───────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  React + TypeScript UI              apps/desktop/src/            │
+│  Composer, chat cards, action approval, session sidebar          │
+│  Renders generative-UI payloads (ui_spa / question / info)       │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │ Tauri commands (invoke)
+                               │ events back up (emit)
+                               v
+┌──────────────────────────────────────────────────────────────────┐
+│  Tauri 2 bridge            apps/desktop/src-tauri/src/commands/  │
+│  Typed command handlers <-> Rust, approval + debug events        │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │
+                               v
+┌──────────────────────────────────────────────────────────────────┐
+│  Rust backend              apps/desktop/src-tauri/src/agent/     │
+│                                                                  │
+│   ┌─────────────────────────┐        ┌─────────────────────────┐ │
+│   │  Orchestrator           │  ───>  │  Tool Router            │ │
+│   │  agentic loop           │        │  name -> &dyn Tool      │ │
+│   │  send_message()         │  <───  │  tool_definitions()     │ │
+│   │  approval + safety gate │        │  (about 40 tools by OS) │ │
+│   └────────────┬────────────┘        └────────────┬────────────┘ │
+│                │                                  │              │
+│      ──────────┼────────  THINK / ACT  ───────────┼────────      │
+│                │                                  │              │
+│                v                                  v              │
+│   ┌─────────────────────────┐        ┌─────────────────────────┐ │
+│   │  Claude API    (THINK)  │        │  Local system   (ACT)   │ │
+│   │  decides tool calls     │        │  shell, network, disk,  │ │
+│   │  BYOK, leaves device    │        │  apps, printers, files  │ │
+│   └─────────────────────────┘        └────────────┬────────────┘ │
+│                                                   │              │
+└───────────────────────────────────────────────────┼──────────────┘
+                                                    │
+                                                    v
+┌──────────────────────────────────────────────────────────────────┐
+│  SQLite                    apps/desktop/src-tauri/src/safety/    │
+│  sessions, messages, journal (changes + undo), llm_traces        │
+│  Local file. Never synced.                                       │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-The dashed line is the thesis. Left of it, a request becomes intent; right of it, intent becomes a system change. The two halves never merge — the Claude API cannot reach the disk, and the local tools cannot reason. They meet only in the orchestrator, which shuttles one to the other.
+The THINK / ACT divider marks the split of responsibility. Left of it, a request becomes intent; right of it, intent becomes a system change. The two halves never merge — the Claude API cannot reach the disk, and the local tools cannot reason. They meet only in the orchestrator, which shuttles one to the other.
 
 ## The Tool trait
 
@@ -83,7 +86,7 @@ pub trait Tool: Send + Sync {
 
 A tool call also carries its receipt. `execute` returns a `ToolResult { output, data, changes }`, where `changes` is a `Vec<ChangeRecord>` and each record names *how to undo itself* (`description`, `undo_tool`, `undo_input`). The orchestrator writes these to the SQLite journal, which is what makes a change reviewable — and, where a tool provides the inverse, reversible — after the fact.
 
-Tiering is advice from the tool; enforcement is separate and lives in the harness. The orchestrator layers two more gates on top of the tier before any `NeedsApproval` call runs: a **fleet policy** override (an administrator can force-approve, force-prompt, or hard-block a tool by name), and an **inspect-before-delete redline** for `shell_run` — a deletion inside a protected tree is held back until Noah has actually looked at the target this session, mirroring a read-before-write discipline. Both are in `orchestrator.rs::execute_tool`; the redline rationale is in `docs/safety-policy.md`. The point is structural: safety does not depend on the model choosing to behave, because the model is not the thing running the command.
+Tiering is advice from the tool; enforcement is separate and lives in the harness. The orchestrator layers two more gates on top of the tier before any `NeedsApproval` call runs: a **fleet policy** override (an administrator can force-approve, force-prompt, or hard-block a tool by name), and an **inspect-before-delete redline** for `shell_run` — a deletion inside a protected tree is held back until Noah has actually looked at the target this session, mirroring a read-before-write discipline. Both live in `execute_tool` in `orchestrator.rs`; the redline rationale is in [the safety policy](../../apps/desktop/src-tauri/docs/safety-policy.md). The point is structural: safety does not depend on the model choosing to behave, because the model is not the thing running the command.
 
 ## Registering tools and exposing them to Claude
 
@@ -103,13 +106,13 @@ Not every registered tool ends in a system call. The `ui_*` tools return a UI pa
    - **A single `ui_*` call** ends the turn: its payload is validated and returned to the frontend as the visible answer. The orchestrator enforces that generative-UI calls are exactly one and never mixed with other tools in the same turn — a policy guard feeds a correction back to the model if it violates this.
    - **Text with no tool calls** ends the turn: the accumulated text is the answer.
    - **Other tool calls** are executed. Each goes through `execute_tool` — tier check, fleet-policy override, redline gate, approval prompt if needed, then `execute`. Results (and any errors) are appended to the history as tool-result blocks, and the loop returns to step 1.
-4. **Guard against spinning.** If the same set of tool calls repeats three turns running, the loop breaks and tells the user it was stuck, rather than looping forever on the user's key and dime.
+4. **Guard against spinning.** If the same set of tool calls repeats three turns running, the loop breaks and tells the user it was stuck, rather than looping forever on the user's API bill.
 
-The shape to notice: the loop is a conversation the machine has with itself on the user's behalf. Claude proposes an action, Rust performs it and reports back, Claude reads the result and proposes the next — turn after turn — until the problem is diagnosed or fixed and Claude renders a final card. The user sees the endpoints (their request, the actions they approve, the result); the intermediate turns are the agent working.
+In effect, the loop is a conversation the machine has with itself on the user's behalf. Claude proposes an action, Rust performs it and reports back, Claude reads the result and proposes the next — turn after turn — until the problem is diagnosed or fixed and Claude renders a final card. The user sees the endpoints (their request, the actions they approve, the result); the intermediate turns are the agent working.
 
 ## Read next
 
-This page is an index; each of the six deep-dive docs below takes one slice of the system down to the code and carries its own **Limitations** section spelling out what that slice does not cover.
+Each deep-dive doc takes one slice of the system down to the code and carries its own **Limitations** section spelling out what that slice does not cover.
 
 1. [Generative UI](./1-generative-ui.md) — how `ui_spa` / `ui_user_question` / `ui_info` / `ui_done` turn a tool call into a rendered card, and why the model draws the interface.
 2. [One thread](./2-one-thread.md) — the single-conversation session model: history, compression, restore, and why there is one continuous thread.

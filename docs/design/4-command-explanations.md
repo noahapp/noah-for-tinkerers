@@ -1,7 +1,5 @@
 # Every Command Explains Itself
 
-> **Status/scope:** Doc 4 of 7 — shipped. Applies to the `shell_run` tool in the BYOK desktop agent (`apps/desktop`). Covers the Rust tool schema, the orchestrator's approval path, and the frontend approval modal.
-
 ![Noah's approval prompt. The model must supply the plain-English reason shown here; the raw command is not displayed in the modal — it is recorded in the session journal.](images/hero-approval-modal.png)
 
 Transparency is enforced at the schema level, not by convention. The model cannot emit a `shell_run` call without also supplying a plain-English explanation of what the command does and why. `reason` is a **required** field in the tool's `input_schema`, so a call that omits it is a malformed tool call. The user is shown that explanation — "Delete old log files to free up disk space" — as the primary content of the approval prompt, and it is what gets recorded in the chat journal on approve or deny.
@@ -20,29 +18,29 @@ This inverts the usual failure mode. Instead of hoping the model volunteers cont
 model emits tool_use
   { "command": "rm -rf ~/Library/Logs/old",
     "reason":  "Delete old log files to free up disk space" }
-        │  (reason is a required field — call is malformed without it)
-        ▼
+        │  (reason is a required field - call is malformed without it)
+        v
 orchestrator.execute_tool
   reason = tool_input["reason"]          // extracted, defaults to ""
         │
-        ▼
-request_approval → ApprovalRequest
+        v
+request_approval -> ApprovalRequest
   { approval_id, tool_name, description, parameters, reason }
         │  emit("approval-request")
-        ▼
+        v
 ActionApproval.tsx  (approval modal)
   reason rendered as the modal's main content
   [ Skip ]   [ Approve ]   [ Approve, don't ask again ]
         │
-        ▼
+        v
 chat journal (system message)
-  approve → "Approved: <reason>"
-  deny    → "Skipped: <reason>"
+  approve -> "Approved: <reason>"
+  deny    -> "Skipped: <reason>"
 ```
 
 ## In the code
 
-**The required field.** `shell_run`'s input schema pairs the raw `command` with a mandatory `reason`, and marks both required — `apps/desktop/src-tauri/src/platform/macos/diagnostics.rs:456`:
+**The required field.** `shell_run`'s input schema pairs the raw `command` with a mandatory `reason`, and marks both required (`apps/desktop/src-tauri/src/platform/macos/diagnostics.rs`):
 
 ```rust
 fn input_schema(&self) -> Value {
@@ -59,9 +57,9 @@ fn input_schema(&self) -> Value {
 }
 ```
 
-The same schema is duplicated per platform: `platform/windows/diagnostics.rs:485` (identical, example included) and `platform/linux/diagnostics.rs:389`. The Linux copy carries a shortened `reason` description without the worked example — a minor drift, harmless because `required: ["command","reason"]` is present in all three.
+The same schema is duplicated per platform: `platform/windows/diagnostics.rs` (identical, example included) and `platform/linux/diagnostics.rs`. The Linux copy carries a shortened `reason` description without the worked example — a minor drift, harmless because `required: ["command","reason"]` is present in all three.
 
-**The pairing structure.** The raw command and its explanation travel together as one struct — `apps/desktop/src-tauri/src/agent/orchestrator.rs:27`:
+**The pairing structure.** The raw command and its explanation travel together as one struct (`apps/desktop/src-tauri/src/agent/orchestrator.rs`):
 
 ```rust
 pub struct ApprovalRequest {
@@ -74,9 +72,9 @@ pub struct ApprovalRequest {
 }
 ```
 
-Its TypeScript mirror is `apps/desktop/src/lib/tauri-commands.ts:14` (same five fields). A round-trip test asserts the serialized JSON has exactly these keys so the Rust struct and TS interface cannot silently diverge — `orchestrator.rs:1391`.
+Its TypeScript mirror in `apps/desktop/src/lib/tauri-commands.ts` has the same five fields. A round-trip test in `orchestrator.rs` asserts the serialized JSON has exactly these keys so the Rust struct and TS interface cannot silently diverge.
 
-**Where `reason` is extracted.** For any tool that needs approval, `execute_tool` pulls `reason` out of the model's input and hands it to `request_approval` — `orchestrator.rs:1005`:
+**Where `reason` is extracted.** For any tool that needs approval, `execute_tool` pulls `reason` out of the model's input and hands it to `request_approval`:
 
 ```rust
 let reason = tool_input
@@ -90,9 +88,9 @@ let approved = self
     .await?;
 ```
 
-`request_approval` (`orchestrator.rs:1087`) packs it into `ApprovalRequest` and emits `approval-request` to the frontend.
+`request_approval` packs it into `ApprovalRequest` and emits `approval-request` to the frontend.
 
-**Where it's surfaced.** In the approval modal, `reason` is the main body content, not a tooltip or a detail row — `apps/desktop/src/components/ActionApproval.tsx:110`:
+**Where it's surfaced.** In the approval modal, `reason` is the main body content, not a tooltip or a detail row (`apps/desktop/src/components/ActionApproval.tsx`):
 
 ```tsx
 const reason = pendingApproval.reason || t("approval.defaultReason");
@@ -101,7 +99,7 @@ const reason = pendingApproval.reason || t("approval.defaultReason");
 <p className="text-sm text-text-primary leading-relaxed">{reason}</p>
 ```
 
-On resolve, the reason is written into the chat journal as a system message — `ActionApproval.tsx:61` (approve) and `:81` (deny):
+On resolve, the reason is written into the chat journal as a system message:
 
 ```tsx
 content: `Approved: ${pendingApproval.reason || "Action approved"}`   // approve
@@ -112,7 +110,7 @@ So the explanation is what the user reads at decision time *and* what persists i
 
 ## Limitations
 
-- **The modal shows only the reason — not the raw command.** The current `ActionApproval.tsx` renders `reason` and the three action buttons; it does not display the `command` string, even though it arrives in `parameters`. This is *stronger* than "reason as a headline over the command" (the framing in earlier drafts and the shared hero shot): as shipped, a user who wants to inspect the literal command has no in-modal affordance for it. That is a deliberate simplification for non-technical users, but it means the raw command is only visible via debug logging, not the approval UI.
+- **The modal shows only the reason — not the raw command.** `ActionApproval.tsx` renders `reason` and the three action buttons; it does not display the `command` string, even though it arrives in `parameters`. A user who wants to inspect the literal command has no in-modal affordance for it. That is a deliberate simplification for non-technical users, but it means the raw command is only visible via debug logging and the session journal, not the approval UI.
 - **`reason` quality is the model's responsibility.** The schema guarantees the field is *present*, not that it is *accurate*. A misleading or vague explanation ("clean things up") passes schema validation. There is no check that the explanation matches what the command actually does.
 - **Extraction defaults to empty.** `execute_tool` uses `unwrap_or("")`, and the modal falls back to `t("approval.defaultReason")`. In the well-formed case the field is always populated (it's required), so this only guards against a malformed call — but it means a blank reason degrades quietly rather than failing loudly.
 - **Enforcement is per-tool, not global.** `reason` is required on `shell_run` specifically. Other tools that reach the approval path rely on their own schemas; there is no framework-level invariant that every approvable tool declares a required `reason`.

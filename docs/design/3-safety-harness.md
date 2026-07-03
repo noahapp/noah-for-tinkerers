@@ -1,10 +1,8 @@
 # The Safety Harness
 
-> **Status/scope:** Doc 3 of 7 — as-shipped, verified against source on 2026-07-01. Scope: macOS. The enforced layers described here are `crates/noah-tools/src/safety.rs`, `crates/noah-tools/src/types.rs`, `apps/desktop/src-tauri/src/platform/macos/diagnostics.rs`, and `apps/desktop/src-tauri/src/agent/orchestrator.rs` (`execute_tool`). Where this doc says "the harness enforces X," X is a `#[test]`-covered branch in that code, not a prompt instruction.
-
 Noah points a language model at a broken Mac and lets it run real commands. The model is not trusted to be safe. It is trusted only to *propose*. Every proposal passes through a harness written in Rust — the orchestrator and the `safety` module — that decides what actually executes. The prompt can be jailbroken; the harness cannot be talked out of its verdict, because the verdict is code, not text.
 
-This is the thesis, stated precisely: **the model has a tool vocabulary and may propose anything expressible in it; the harness holds a set of independent gates between a proposal and its execution.** Each gate blocks a distinct class of harm, and a proposal must clear all of them. This document walks the gates in the order the code applies them, quotes what each one checks, and is explicit about what it does *not* cover.
+Stated precisely: **the model has a tool vocabulary and may propose anything expressible in it; the harness holds a set of independent gates between a proposal and its execution.** Each gate blocks a distinct class of harm, and a proposal must clear all of them. This document walks the gates in the order the code applies them, quotes what each one checks, and is explicit about what it does *not* cover. It describes the macOS implementation — the enforced layers live in `crates/noah-tools/src/safety.rs`, `crates/noah-tools/src/types.rs`, `apps/desktop/src-tauri/src/platform/macos/diagnostics.rs`, and `execute_tool` in `apps/desktop/src-tauri/src/agent/orchestrator.rs`. Where this document says "the harness enforces X," X is a `#[test]`-covered branch in that code, not a prompt instruction.
 
 ---
 
@@ -91,7 +89,7 @@ match effect {
 
 ### Layer 2 — The inspect-before-delete redline gate
 
-This is the core of the harness and the reason the launch-incident class is dead. It lives in `crates/noah-tools/src/safety.rs` as a **pure, deterministic** function: given the command string, the user's home dir, and the set of paths already inspected this session, it returns a verdict. State (what's been inspected) lives in the orchestrator; the classifier itself is stateless. The gate runs for `shell_run` only, and it runs regardless of tier.
+This is the core of the harness and the reason the incident class described in [the safety policy](../../apps/desktop/src-tauri/docs/safety-policy.md) cannot recur. It lives in `crates/noah-tools/src/safety.rs` as a **pure, deterministic** function: given the command string, the user's home dir, and the set of paths already inspected this session, it returns a verdict. State (what's been inspected) lives in the orchestrator; the classifier itself is stateless. The gate runs for `shell_run` only, and it runs regardless of tier.
 
 The verdict type (`safety.rs`):
 
@@ -221,7 +219,7 @@ The model therefore experiences the harness not as a wall but as a redirect: *"t
 
 ```mermaid
 flowchart TD
-    P[Model proposes a tool call] --> T[Compute tier from input\nsafety_tier_for_input]
+    P[Model proposes a tool call] --> T[Compute tier from input<br/>safety_tier_for_input]
     T --> F{Fleet policy?}
     F -->|Block| BX[Return: blocked by policy]
     F -->|AutoApprove| G0[tier = SafeAction]
@@ -231,28 +229,28 @@ flowchart TD
     G1 --> S
     S -->|no| APR
     S -->|yes| HD{hard_denied?}
-    HD -->|yes| RX[Refuse: hard limit\nreturn reason to model]
-    HD -->|no| CAN{deletes AND\nnon-canonical?}
-    CAN -->|yes| TIP1[Reject: re-express legibly\nreturn tip to model]
-    CAN -->|no| PT{delete inside\nprotected tree?}
+    HD -->|yes| RX[Refuse: hard limit<br/>return reason to model]
+    HD -->|no| CAN{deletes AND<br/>non-canonical?}
+    CAN -->|yes| TIP1[Reject: re-express legibly<br/>return tip to model]
+    CAN -->|no| PT{delete inside<br/>protected tree?}
     PT -->|no| APR
-    PT -->|wildcard/ancestor| SW[RejectSweep: enumerate instead\nreturn tip]
-    PT -->|concrete, not inspected| INS[RejectNeedsInspection\nreturn tip: inspect first]
+    PT -->|wildcard/ancestor| SW[RejectSweep: enumerate instead<br/>return tip]
+    PT -->|concrete, not inspected| INS[RejectNeedsInspection<br/>return tip: inspect first]
     PT -->|concrete, inspected| APR
     APR{tier == NeedsApproval?}
     APR -->|no| EX[Execute]
-    APR -->|yes| MODAL[Emit approval-request\n5-min timeout auto-denies]
+    APR -->|yes| MODAL[Emit approval-request<br/>5-min timeout auto-denies]
     MODAL -->|approved| EX
     MODAL -->|denied/timeout| DN[Return: denied by user]
-    EX --> REC[Record inspection if read-class\nAND exit_code == 0]
+    EX --> REC[Record inspection if read-class<br/>AND exit_code == 0]
     REC --> J[Journal changes]
 ```
 
 ---
 
-## Limitations & honest gaps
+## Limitations
 
-The harness is a set of guardrails, not a proof of safety. Stated plainly:
+The harness is a set of guardrails, not a proof of safety.
 
 - **`shell_run` has no true undo.** The tool returns a `ChangeRecord`, but for shell commands its `undo_tool` is the empty string and `undo_input` is `null` (`diagnostics.rs`) — the journal records *that* a command ran, not a way to reverse it. Reversibility is tool-specific; a deletion is permanent. The gate's job is to make sure a deletion is inspected and approved *before* it happens, precisely because it cannot be taken back after.
 
@@ -264,4 +262,4 @@ The harness is a set of guardrails, not a proof of safety. Stated plainly:
 
 - **`is_dangerous_command` is a substring net.** It is intentionally over-inclusive (safe by default), but pattern-based classification can be fooled by unusual spacing or encodings; it is a routing heuristic for the approval tier, not a security boundary. The security boundaries are the deterministic `gate_decision` verdicts and the human at the approval modal.
 
-The honest summary: the harness makes the *common, plausible-but-wrong* destructive action require inspection and approval, makes a small set of *catastrophic* actions impossible, and makes *obfuscated* deletions bounce back for re-expression — while leaving the user's explicit, inspected, approved intent free to execute. It reduces risk to a reviewed decision. It does not eliminate it.
+In summary: the harness makes the *common, plausible-but-wrong* destructive action require inspection and approval, makes a small set of *catastrophic* actions impossible, and makes *obfuscated* deletions bounce back for re-expression — while leaving the user's explicit, inspected, approved intent free to execute. It reduces risk to a reviewed decision. It does not eliminate it.

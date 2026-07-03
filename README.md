@@ -3,10 +3,6 @@
   <img src="https://img.shields.io/badge/key-bring%20your%20own-5b8def.svg" alt="Bring your own key">
 </p>
 
-<p align="center">
-  <strong>English</strong> | <a href="docs/README.es.md">Español</a> | <a href="docs/README.ja.md">日本語</a> | <a href="docs/README.zh-CN.md">中文</a>
-</p>
-
 # Noah for Tinkerers
 
 **Let an AI fix your computer — without letting it run wild.** Noah for Tinkerers is the

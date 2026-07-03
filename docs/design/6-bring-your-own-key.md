@@ -1,15 +1,13 @@
 # Bring Your Own Key — An Agent With No Backend
 
-> **Status/scope:** Doc 6 of 7 — as-built, verified against `noah` (`app.onnoah.tinkerers` v2.0.0) on 2026-07-01. Scope: the trust and data-flow model of the open BYOK build. Where the code disagrees with prior copy, this doc follows the code and flags the discrepancy inline.
-
 The open build authenticates to Anthropic from the user's own machine with the user's own Anthropic API key. There is no Noah account, no login, no entitlement server, and no request proxy in the path between the app and Claude. The conversation with Claude is the one payload that leaves the machine as a matter of course. Diagnostics, the session journal, knowledge, and the key itself stay local.
 
-Two qualifications belong up front, because the rest of the doc holds itself to what the code actually does:
+Two qualifications up front:
 
-1. The key is stored as a **plaintext file** in the app's data directory, not in the OS keychain. Some external copy has described it as keychain-backed; the code does not do that today. See [Where your key lives](#where-your-key-lives).
+1. The key is stored as a **plaintext file** in the app's data directory, not in the OS keychain. See [Where your key lives](#where-your-key-lives).
 2. Alongside the conversation, the build makes a small number of calls to Noah-operated infrastructure at `onnoah.app/byok`: a **signed update check** (always on) and an **anonymous, opt-out usage beacon** (default on, no identifiers). Neither carries the key or the conversation. See [What leaves the machine](#what-leaves-the-machine-and-what-doesnt).
 
-This is a positioning statement about *this* build only. The managed service at onnoah.app is a separate track with its own architecture: **the managed build has a backend; this build does not.** That is an architectural fact, not a ranking — neither claim about one build implies anything about the other.
+This document describes the open build only. The managed service at onnoah.app is a parallel track with its own architecture — it has a backend; this build does not.
 
 ---
 
@@ -57,9 +55,7 @@ fn load_auth(app_dir: &std::path::Path) -> AuthMode {
 }
 ```
 
-**Accuracy note.** The key is stored as a plaintext file protected by normal filesystem permissions, **not** in the macOS Keychain / Windows Credential Manager / Linux Secret Service. Any claim that it "lives in the OS keychain" is inaccurate for the current build. What *is* accurate, and what the README says, is that the key "is stored locally on your device and used only to authenticate your own calls to Anthropic; it's never sent to a Noah server." The code bears that out: the key is attached only as the `x-api-key` header on requests to Anthropic (`llm_client.rs::apply_auth`), and to no other destination.
-
-The source also carries a `TODO(byok-ux)` acknowledging the setup ergonomics are still rough (the underlying store is a hand-editable file). Moving the key into the OS secret store would be a strict improvement and is the natural next step; until it lands, this doc will not claim keychain storage.
+The key is stored as a plaintext file protected by normal filesystem permissions, **not** in the macOS Keychain / Windows Credential Manager / Linux Secret Service. What the README says holds: the key "is stored locally on your device and used only to authenticate your own calls to Anthropic; it's never sent to a Noah server." The code bears that out: the key is attached only as the `x-api-key` header on requests to Anthropic (`llm_client.rs::apply_auth`), and to no other destination. Moving the key into the OS secret store would be a strict improvement and is the natural next step.
 
 ---
 
@@ -111,7 +107,7 @@ A complete inventory of where data goes.
 - **Connectivity diagnostics** — network playbooks may probe a host to test reachability (`platform/*/network.rs`). Diagnostic, on-demand.
 - **Fleet dashboard link** (`dashboard_link.rs`) — an *optional, opt-in* feature: the user pastes a 6-character enrollment code / URL to link the device to a web dashboard, after which status posts to that user-supplied dashboard URL. Off unless the user explicitly enrolls.
 
-The honest summary: **by default and at rest, the only continuous outbound traffic is the conversation to Anthropic and the two `onnoah.app/byok` calls (update check + anonymous beacon).** Everything else is either local-only or happens only when explicitly invoked.
+In sum: **by default and at rest, the only continuous outbound traffic is the conversation to Anthropic and the two `onnoah.app/byok` calls (update check + anonymous beacon).** Everything else is either local-only or happens only when explicitly invoked.
 
 ---
 
@@ -132,35 +128,36 @@ So the update path requires no Noah account and reveals no identity: the client 
 ### Data-flow diagram
 
 ```
-                          YOUR MAC
-   ┌──────────────────────────────────────────────────────────┐
-   │                                                            │
-   │   React UI ── Tauri ── Rust agent loop                     │
-   │                          │                                 │
-   │         ┌────────────────┼─────────────────┐              │
-   │         │                │                 │              │
-   │   local SQLite     api_key.txt        tool router         │
-   │   (journal,        (+ ANTHROPIC_       → runs commands     │
-   │    knowledge,       API_KEY env)         on THIS machine   │
-   │    local telem)    stays on disk                           │
-   │                                                            │
-   └──────────┬───────────────────────────────────┬───────────┘
-              │                                     │
-              │  your key (x-api-key) +             │  "is there an update?"
-              │  the conversation                   │  (signed check, no key,
-              ▼                                     ▼   no identity)
-      ┌───────────────────┐              ┌────────────────────────────┐
-      │  api.anthropic.com │              │  onnoah.app/byok           │
-      │  /v1/messages      │              │  • latest.json (update)    │
-      └───────────────────┘              │  • /event (anon,           │
-                                          │    opt-out beacon:         │
-                                          │    {"type":"issue_fixed"}) │
-                                          └────────────────────────────┘
+                            YOUR MACHINE
+  ┌───────────────────────────────────────────────────────────┐
+  │                                                           │
+  │   React UI ── Tauri ── Rust agent loop                    │
+  │                            │                              │
+  │        ┌───────────────────┼──────────────────┐           │
+  │        │                   │                  │           │
+  │        v                   v                  v           │
+  │   local SQLite        api_key.txt        tool router      │
+  │   (journal,           (or ANTHROPIC_     runs commands    │
+  │    knowledge,          API_KEY env)      on THIS machine  │
+  │    local telemetry)   stays on disk                       │
+  │                                                           │
+  └───────────┬─────────────────────────────────┬─────────────┘
+              │                                 │
+              │  your key (x-api-key)           │  "is there an update?"
+              │  + the conversation             │  (signed check, no key,
+              v                                 v   no identity)
+  ┌─────────────────────┐        ┌───────────────────────────────┐
+  │  api.anthropic.com  │        │  onnoah.app/byok              │
+  │  /v1/messages       │        │  - latest.json (update feed)  │
+  └─────────────────────┘        │  - /event (anonymous,         │
+                                 │    opt-out beacon:            │
+                                 │    {"type":"issue_fixed"})    │
+                                 └───────────────────────────────┘
 
-   Nothing else leaves at rest. No key, no journal, no diagnostics,
-   no account — the beacon body carries no identifiers, and the
-   update check carries no identity. On-demand only: the web-fetch
-   tool, connectivity probes, and (opt-in) fleet-dashboard linking.
+  Nothing else leaves at rest. No key, no journal, no diagnostics,
+  no account - the beacon body carries no identifiers, and the
+  update check carries no identity. On-demand only: the web-fetch
+  tool, connectivity probes, and (opt-in) fleet-dashboard linking.
 ```
 
 The visual point: two arrows leave the machine as a matter of course — the conversation to Anthropic (carrying the key), and the update/beacon calls to `onnoah.app/byok` (carrying neither the key nor the conversation nor any identifier). The local box keeps the key, the journal, the knowledge, and all diagnostic output.
@@ -169,10 +166,8 @@ The visual point: two arrows leave the machine as a matter of course — the con
 
 ## Limitations
 
-Stated plainly, so the trust claim isn't overstated:
-
-- **The key is a plaintext file, not keychain-backed.** It is protected by filesystem permissions in the app data dir, nothing stronger. Anything with read access to that directory can read the key. Keychain / Credential Manager / Secret Service storage is the intended improvement and is not yet built (`TODO(byok-ux)`).
-- **"No telemetry server" is not literally true.** The build sends an anonymous, opt-out, no-PII `issue_fixed` beacon to `onnoah.app/byok/event` by default. It carries no identifier and nothing from the session, and it can be turned off in Settings — but it is a network call to Noah infrastructure, and this doc names it rather than eliding it. (The `notify_issue_fixed` endpoint still carries a `TODO: confirm endpoint URL` in source; treat the exact path as subject to change.)
+- **The key is a plaintext file, not keychain-backed.** It is protected by filesystem permissions in the app data dir, nothing stronger. Anything with read access to that directory can read the key. Keychain / Credential Manager / Secret Service storage is the intended improvement and is not yet built.
+- **"No telemetry server" is not literally true.** The build sends an anonymous, opt-out, no-PII `issue_fixed` beacon to `onnoah.app/byok/event` by default. It carries no identifier and nothing from the session, and it can be turned off in Settings — but it is a network call to Noah infrastructure, and this document names it rather than eliding it.
 - **The update feed is a Noah-operated dependency.** The app has no backend it needs to *run*, but it does depend on `onnoah.app/byok` to *update*. If that host is unreachable, the app keeps working; it simply won't discover new versions. Trust in updates rests on the minisign signature (`CE75B852`), so a compromised feed still cannot ship an unsigned or wrong-key binary.
 - **The conversation is real data leaving the machine.** "Your data never leaves your machine except the conversation with Claude" is accurate, but that exception is substantial: prompts, tool inputs, and tool outputs that the agent chooses to send to Claude go to Anthropic under Anthropic's terms. BYOK removes Noah from that path; it does not make the conversation local.
 - **Opt-in fleet linking sends status off-device.** If a user enrolls in a web dashboard (`dashboard_link.rs`), device status posts to that dashboard URL. This is off by default and requires an explicit enrollment code.

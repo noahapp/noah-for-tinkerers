@@ -1,9 +1,7 @@
 # Destructive-action safety policy
 
-Status: accepted, 2026-06-09. Owner: Eric.
-
-This is the durable decision record behind Noah's redline system. It exists
-because a real session nearly (and maybe actually) destroyed a user's
+This is the decision record behind Noah's redline system, adopted in June 2026.
+It exists because a real session nearly (and maybe actually) destroyed a user's
 data. Read the incident first — the policy only makes sense as a response to it.
 
 ## The incident
@@ -16,9 +14,9 @@ A user asked (one sentence, three intents):
 
 Three intents: performance, **offload to cloud (move, preserve)**, and a **hard
 quota** (under 410 GB). Across ~44 steps Noah held the quota and worked it down
-(398 → 321 GB). That relentless, goal-driven, conversational cleanup is the
-product's moat — it is impossible in CleanMyMac or Mole because it requires
-reasoning and a dialogue. **We do not want to weaken it.**
+(398 → 321 GB). That relentless, goal-driven, conversational cleanup is exactly
+what Noah is for — it requires reasoning and a dialogue, and **we did not want to
+weaken it.**
 
 But the same loop also ran, each gated only by a click-through approval whose
 prompt showed Noah's own one-line reason:
@@ -30,9 +28,10 @@ prompt showed Noah's own one-line reason:
 - `tmutil deletelocalsnapshots` → the Time Machine safety net.
 
 And it **never touched Google Drive** — it silently swapped the user's chosen
-*method* (move/preserve) for *delete*. We cannot tell from telemetry which
-deletes succeeded, because we logged the *proposed shell command*, not the
-*approval decision or the result*. We were blind. That blindness is TODO #1.
+*method* (move/preserve) for *delete*. Worse, we could not tell after the fact
+which deletes actually ran, because the logs recorded the *proposed shell
+command*, not the *approval decision or the result*. We were blind. Closing that
+blindness is part of this policy (see the action-event record below).
 
 ## What went wrong, structurally
 
@@ -49,7 +48,7 @@ deletion toward a goal, the safety floor was a single click.
    - *Software (Rust)* — deterministic, un-arguable. The only layer that can
      hold a **redline**. Holds the enforced policy.
    - *Playbook* — contextual good-practice ("offload means move"; "surface,
-     don't push deletion"). Advisory. Goes back to being *advice*, not a guard.
+     don't push deletion"). Advisory — advice, never a guard.
    - *AI* — judgment and conversation. Powerful and persuadable. Never a place
      for a guarantee.
    A redline the model can talk past is not a redline.
@@ -209,8 +208,7 @@ Claude Code's read-set.
 
 - A **read-class** observation records the paths it covers as inspected:
   `shell_run` running `ls`/`du`/`find`/`stat`/`cat`/`file` against a path, and
-  the structured read tools (`disk_audit`, `mac_disk_usage`). Down the road, the
-  background scanner's inventory pre-satisfies inspection for paths it covered.
+  the structured read tools (`disk_audit`, `mac_disk_usage`).
 - A **delete** targeting a protected tree consults the set:
   - wildcard sweep → reject (never cleared), tip: enumerate + inspect specifics.
   - concrete path inspected (path `T` where some inspected `I` is within the
@@ -223,7 +221,7 @@ Claude Code's read-set.
 
 The tip is what makes it a harness, not a wall: it instructs the remedy.
 
-## Telemetry schema (TODO #1 — "did we actually approve it")
+## The action-event record ("did we actually approve it")
 
 Emitted from the execution layer for every consequential action:
 
@@ -237,10 +235,10 @@ action_event {
 }
 ```
 
-v1 emits this locally (frontend debug channel + stderr) and records the
-approval/denial decision — closing the "we only saw the proposed command"
-blindness. Binding `paths_touched` into the undo journal is the next slice; it
-reuses `safety::journal`.
+The current implementation emits this locally (frontend debug channel + stderr)
+and records the approval/denial decision — closing the "we only saw the proposed
+command" blindness. Binding `paths_touched` into the undo journal is the natural
+next step; it reuses `safety::journal`.
 
 ## Honoring intent (playbook layer)
 
@@ -251,7 +249,7 @@ local), never straight-deleted; irreplaceable-and-critical data is left alone �
 the few GB are not worth it.** This lives in the playbook because it is
 judgment; the trees above are the floor the playbook cannot fall through.
 
-## Known limits (stated, not hidden)
+## Known limits
 
 Fail-closed canonical form closes the spelling bypasses (relative paths,
 variables, `$(…)`, `find`/`xargs`, firmlinks) by *refusing* them rather than
