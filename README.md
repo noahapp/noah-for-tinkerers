@@ -19,9 +19,9 @@ subscription and no account — just the app, your key, and your computer.
 > approval.
 
 <p align="center">
-  <img src="docs/images/noah-hero.png" width="800" alt="Noah diagnosing a slow computer, finding runaway processes, and fixing the issue in one click" />
+  <img src="docs/images/noah-hero.gif" width="800" alt="Noah diagnosing a slow Mac, finding the cause, and fixing it in one click" />
 </p>
-<p align="center"><i>You say "my computer is slow." Noah finds the problem, explains the fix, and handles it.</i></p>
+<p align="center"><i>An afternoon of frustration, or a few minutes with Noah.</i></p>
 
 ## How it works
 
