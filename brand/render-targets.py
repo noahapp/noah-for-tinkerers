@@ -24,7 +24,16 @@ import shutil
 import subprocess
 import sys
 
-import cairosvg
+try:
+    import resvg_py
+except Exception:
+    resvg_py = None
+
+try:
+    import cairosvg
+except Exception:
+    cairosvg = None
+
 from PIL import Image
 
 
@@ -48,9 +57,23 @@ def _copy_svg_with_warning(src: pathlib.Path, dest: pathlib.Path) -> None:
     print(f"  → {dest}")
 
 
+def _render_png_bytes(src: pathlib.Path, size: int) -> bytes:
+    if resvg_py is not None:
+        try:
+            return resvg_py.svg_to_bytes(src.read_text(encoding="utf-8"), width=size, height=size)
+        except Exception:
+            pass
+    if cairosvg is not None:
+        buf = io.BytesIO()
+        cairosvg.svg2png(url=str(src), output_width=size, output_height=size, write_to=buf)
+        return buf.getvalue()
+    raise RuntimeError("Neither resvg_py nor cairosvg (with working cairo library) is available to render SVG to PNG.")
+
+
 def _render_png(src: pathlib.Path, size: int, dest: pathlib.Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    cairosvg.svg2png(url=str(src), output_width=size, output_height=size, write_to=str(dest))
+    data = _render_png_bytes(src, size)
+    dest.write_bytes(data)
     print(f"  → {dest} ({size}×{size})")
 
 
@@ -184,19 +207,25 @@ def step_tauri_icons() -> None:
 def step_tauri_ico() -> None:
     print("[desktop/src-tauri/icons] icon.ico (multi-resolution from plated)")
     ico_path = TAURI_ICONS / "icon.ico"
-    sizes = [16, 32, 48, 256]
+    sizes = [16, 24, 32, 48, 64, 128, 256]
     images = []
-    for s in sizes:
-        buf = io.BytesIO()
-        cairosvg.svg2png(url=str(PLATED_SVG), output_width=s, output_height=s, write_to=buf)
-        buf.seek(0)
-        images.append(Image.open(buf).convert("RGBA"))
-    images[0].save(ico_path, format="ICO", sizes=[(s, s) for s in sizes], append_images=images[1:])
+    # Render images largest first (256x256 down to 16x16) so images[0] is 256x256.
+    # Pillow's ICO exporter uses im.size (images[0].size) to filter sizes; if im is 16x16,
+    # Pillow drops all sizes > 16x16. Passing 256x256 as images[0] preserves all 7 frames.
+    for s in sorted(sizes, reverse=True):
+        data = _render_png_bytes(PLATED_SVG, s)
+        images.append(Image.open(io.BytesIO(data)).convert("RGBA"))
+
+    sizes_tuples = [(s, s) for s in sizes]
+    images[0].save(ico_path, format="ICO", sizes=sizes_tuples, append_images=images[1:])
     print(f"  → {ico_path}")
 
 
 def step_tauri_icns() -> None:
     print("[desktop/src-tauri/icons] icon.icns (built via iconutil from plated)")
+    if not shutil.which("iconutil"):
+        print("  ! iconutil not found (non-macOS) — skipping .icns build")
+        return
     import tempfile
     with tempfile.TemporaryDirectory() as td:
         iconset = pathlib.Path(td) / "icon.iconset"
@@ -217,6 +246,10 @@ def step_tauri_icns() -> None:
 
 
 def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     if not BARE_SVG.exists() or not PLATED_SVG.exists():
         print(f"ERROR: canonical SVGs missing in {HERE} — run build.py first.", file=sys.stderr)
         return 1
